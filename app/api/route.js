@@ -1,4 +1,4 @@
-import { getSheet } from '@/lib/googleSheets';
+import { getSheet } from '../../lib/googleSheets';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
@@ -13,17 +13,22 @@ export async function GET() {
     const data = rows.map(row => {
       const item = row.toObject();
       // Logic tự động chuyển trạng thái Tiệt khuẩn
-      if (item.trang_thai === 'DANG_TIET_KHUAN') {
-        const endTime = new Date(item.thoi_gian_ket_thuc);
-        if (now >= endTime) {
-          const master = catalogs.find(c => c.get('ten_bo_dung_cu') === item.ten_bo_dung_cu);
-          const days = parseInt(master?.get('so_ngay_han') || 7);
-          const expiry = new Date(endTime.getTime() + days * 86400000);
-          
-          row.set('trang_thai', 'HOAN_THANH_TIET_KHUAN');
-          row.set('han_su_dung', expiry.toISOString());
-          row.save();
+      try {
+        if (item.trang_thai === 'DANG_TIET_KHUAN') {
+          const endTime = new Date(item.thoi_gian_ket_thuc);
+          if (now >= endTime) {
+            const master = catalogs.find(c => c.get('ten_bo_dung_cu') === item.ten_bo_dung_cu);
+            const days = parseInt(master?.get('so_ngay_han') || 7);
+            const expiry = new Date(endTime.getTime() + days * 86400000);
+            
+            row.set('trang_thai', 'HOAN_THANH_TIET_KHUAN');
+            row.set('han_su_dung', expiry.toISOString());
+            row.save();
+          }
         }
+      } catch (error) {
+        console.error("Đã có lỗi xảy ra:", error);
+        // Bạn có thể xử lý lỗi thêm ở đây, ví dụ trả về một phản hồi lỗi
       }
       return item;
     });
