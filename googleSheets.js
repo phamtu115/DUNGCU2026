@@ -1,7 +1,8 @@
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { JWT } from 'google-auth-library';
 
-const SPREADSHEET_ID = '1Md-IDuSQw33scPzvmWEP6nZVP7gykCBBezajCLPSZww';
+const SPREADSHEET_ID =
+  process.env.GOOGLE_SPREADSHEET_ID || '1Md-IDuSQw33scPzvmWEP6nZVP7gykCBBezajCLPSZww';
 
 const auth = new JWT({
   email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
