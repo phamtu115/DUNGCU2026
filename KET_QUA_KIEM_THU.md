@@ -29,6 +29,6 @@ Phạm vi:
 - Kiểm thử nghiệp vụ/API: **16/16 ĐẠT**.
 - Không có thư viện ngoài cần cài đặt; không phát sinh lỗi phụ thuộc.
 - Mã trình duyệt không chứa `SUPABASE_SERVICE_ROLE_KEY`.
-- Cấu hình Vercel không dùng Output Directory `public`, tránh lỗi triển khai đã gặp ở hệ thống cũ.
+- Bước build tạo đủ `public/index.html`, `public/styles.css` và bốn mô-đun trong `public/src/`; Output Directory của Vercel được cố định là `public`.
 
 Ngày kiểm thử: 02/09/2026.
