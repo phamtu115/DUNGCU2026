@@ -15,7 +15,7 @@ Không đưa Secret key vào mã nguồn, GitHub hoặc biến bắt đầu bằ
 1. Trong Vercel chọn **Add New → Project**.
 2. Chọn kho `phamtu115/DUNGCU2026`.
 3. Framework Preset chọn **Other**.
-4. Để trống Build Command và Output Directory; `vercel.json` đã xử lý web tĩnh và Serverless API.
+4. Root Directory để trống. Build Command dùng `npm run build`; Output Directory là `public`. Các giá trị này cũng đã được khóa trong `vercel.json` và `package.json` để lần triển khai sau không phụ thuộc cấu hình cũ trên Dashboard.
 
 ## 3. Khai báo Environment Variables
 
