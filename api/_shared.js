@@ -23,7 +23,7 @@ export function config() {
 
 export function authorized(req) {
   const expected = String(process.env.APP_ACCESS_KEY || '');
-  if (!expected) return true;
+  if (!expected) return false;
   const header = String(req.headers.authorization || '');
   const actual = header.startsWith('Bearer ') ? header.slice(7) : '';
   if (actual.length !== expected.length) return false;
@@ -32,6 +32,16 @@ export function authorized(req) {
     difference |= actual.charCodeAt(index) ^ expected.charCodeAt(index);
   }
   return difference === 0;
+}
+
+export function accessConfigured() {
+  return String(process.env.APP_ACCESS_KEY || '').length >= 12;
+}
+
+export function validateStatePayload(state) {
+  const arrays = ['rates', 'rooms', 'services', 'guests', 'bookings', 'stays', 'moves', 'charges', 'invoices', 'invoiceLines', 'receipts', 'housekeeping', 'maintenance', 'stockIns', 'stockOuts', 'audit'];
+  if (!state || typeof state !== 'object' || Array.isArray(state) || !state.meta || !state.settings) return false;
+  return arrays.every((key) => Array.isArray(state[key]));
 }
 
 export async function supabaseFetch(path, options = {}) {
