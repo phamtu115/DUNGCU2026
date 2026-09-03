@@ -22,6 +22,8 @@ for (const file of javascript) {
 
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 for (const asset of ['/styles.css', '/src/app.js']) if (!html.includes(asset)) failures.push(`index.html chưa liên kết ${asset}`);
+if (/<dialog[^>]*id=["']modal["'][^>]*>\s*<form/i.test(html)) failures.push('Hộp thoại chung không được bọc form vì các biểu mẫu nghiệp vụ sẽ bị lồng form.');
+if (!html.includes('id="modalClose"')) failures.push('Hộp thoại chung thiếu nút đóng độc lập modalClose.');
 const clientText = ['src/model.js', 'src/domain.js', 'src/store.js', 'src/app.js'].map((file) => fs.readFileSync(path.join(root, file), 'utf8')).join('\n');
 if (clientText.includes('SUPABASE_SERVICE_ROLE_KEY')) failures.push('Khóa service role xuất hiện trong mã trình duyệt.');
 const readable = [...required, ...sourceOnly.filter((file) => fs.existsSync(path.join(root, file)))];
