@@ -1,10 +1,12 @@
-# HOTEL MANAGER PRO 4.1.0
+# HOTEL MANAGER PRO 4.2.0
 
 Phần mềm quản lý nghiệp vụ khách sạn chạy trên **GitHub + Vercel + Supabase**, chuyển đổi từ bộ Google Sheets + Apps Script Hotel Manager Pro 3.1.1.
 
 ## Quy trình hoàn chỉnh
 
 **Đặt phòng → Nhận phòng → Lưu trú → Đồ giải khát/dịch vụ → Trả phòng → Hóa đơn → Thanh toán → In hóa đơn → Vệ sinh → Mở phòng → Thống kê doanh thu.**
+
+Phiên bản 4.2 bổ sung trả phòng an toàn, tự chuyển sang Thanh toán và cho phép một người thanh toán gộp nhiều phòng cùng mã nhóm đặt phòng. Mỗi phòng vẫn giữ hóa đơn, công nợ và doanh thu riêng để đối soát chính xác.
 
 ## Chức năng
 
