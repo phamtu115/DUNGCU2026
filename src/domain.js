@@ -236,6 +236,10 @@ export function checkOut(current, stayId, options = {}) {
   const stay = state.stays.find((item) => item.id === stayId && item.status === 'Đang ở');
   if (!stay) throw new Error('Lượt lưu trú không hợp lệ để trả phòng.');
   const checkout = options.checkout || new Date().toISOString();
+  if (!Number.isFinite(asDate(checkout).getTime())) throw new Error('Thời gian trả phòng không hợp lệ.');
+  if (asDate(checkout) < asDate(stay.checkIn)) throw new Error('Thời gian trả phòng không được trước thời gian nhận phòng.');
+  if (state.invoices.some((item) => item.stayId === stay.id && item.status !== 'Đã hủy')) throw new Error('Lượt lưu trú này đã có hóa đơn, không thể lập trùng.');
+  const booking = state.bookings.find((item) => item.id === stay.bookingId);
   const roomCalculation = calculateRoomAmount(state, stay, checkout);
   const charges = state.charges.filter((item) => item.stayId === stay.id && item.status === 'Chưa lập hóa đơn');
   const serviceAmount = charges.reduce((sum, item) => sum + money(item.amount), 0);
@@ -249,8 +253,12 @@ export function checkOut(current, stayId, options = {}) {
   const initialDue = Math.max(0, total - money(stay.deposit));
   const initialSurplus = Math.max(0, money(stay.deposit) - total);
   const initiallyPaid = initialDue === 0 && initialSurplus === 0;
+  const finalRoomHistory = deepClone(stay.roomHistory || []);
+  if (finalRoomHistory.length) finalRoomHistory[finalRoomHistory.length - 1].to = checkout;
   const invoice = {
-    id: id('HD'), createdAt: new Date().toISOString(), stayId: stay.id, roomId: stay.roomId, roomHistory: deepClone(stay.roomHistory || []), guestName: stay.guestName,
+    id: id('HD'), createdAt: new Date().toISOString(), stayId: stay.id, bookingId: stay.bookingId,
+    groupId: booking?.groupId || '', guestId: stay.guestId || booking?.guestId || '', phone: stay.phone || booking?.phone || '',
+    roomId: stay.roomId, roomHistory: finalRoomHistory, guestName: stay.guestName,
     checkIn: stay.checkIn, checkout, nights: roomCalculation.count, averageRate: roomCalculation.average,
     roomAmount: roomCalculation.total, serviceAmount, surcharge, discount, discountReason: options.discountReason || '',
     serviceFee, vat, total, deposit: money(stay.deposit), paid: 0, refunded: 0,
@@ -264,12 +272,33 @@ export function checkOut(current, stayId, options = {}) {
     charge.status = 'Đã lập hóa đơn'; charge.invoiceId = invoice.id;
     state.invoiceLines.push({ invoiceId: invoice.id, type: charge.type, itemId: charge.serviceId, name: charge.name, unit: charge.unit, quantity: charge.quantity, unitPrice: charge.unitPrice, amount: charge.amount, note: charge.note });
   });
+  if (finalRoomHistory.length) stay.roomHistory = deepClone(finalRoomHistory);
   stay.checkout = checkout; stay.nights = roomCalculation.count; stay.averageRate = roomCalculation.average; stay.roomAmount = roomCalculation.total; stay.status = 'Đã trả phòng';
-  const booking = state.bookings.find((item) => item.id === stay.bookingId); if (booking) booking.status = 'Đã trả phòng';
+  if (booking) booking.status = 'Đã trả phòng';
   const room = state.rooms.find((item) => item.id === stay.roomId); if (room) room.status = 'Chờ vệ sinh';
   state.housekeeping.unshift({ id: id('VS'), createdAt: new Date().toISOString(), roomId: stay.roomId, type: 'Vệ sinh sau trả phòng', priority: 'Thường', status: 'Chờ xử lý', assignee: '', startedAt: '', completedAt: '', note: '' });
   audit(state, 'Trả phòng và lập hóa đơn', 'HOA_DON', invoice.id, `${stay.roomId} · ${invoice.total}`);
   return touch(state);
+}
+
+export function invoiceGroupId(state, invoice) {
+  if (invoice?.groupId) return invoice.groupId;
+  const stay = state.stays.find((item) => item.id === invoice?.stayId);
+  const booking = state.bookings.find((item) => item.id === (invoice?.bookingId || stay?.bookingId));
+  return booking?.groupId || `DON-${invoice?.id || 'KHONG_MA'}`;
+}
+
+function refreshInvoicePayment(invoice) {
+  const available = money(invoice.deposit) + money(invoice.paid) - money(invoice.refunded);
+  invoice.due = Math.max(0, money(invoice.total) - available);
+  invoice.surplus = Math.max(0, available - money(invoice.total));
+  if (invoice.due === 0 && invoice.surplus === 0) {
+    invoice.status = 'Đã thanh toán';
+    invoice.paidAt ||= new Date().toISOString();
+  } else {
+    invoice.status = 'Chờ thanh toán';
+    invoice.paidAt = '';
+  }
 }
 
 export function payInvoice(current, invoiceId, payload) {
@@ -280,13 +309,41 @@ export function payInvoice(current, invoiceId, payload) {
   if (!amount) throw new Error('Số tiền thu phải lớn hơn 0.');
   state.receipts.unshift({ id: id('PT'), at: new Date().toISOString(), type: 'Thu thanh toán', invoiceId: invoice.id, roomId: invoice.roomId, guestName: invoice.guestName, amount, method: payload.method || 'Tiền mặt', status: 'Đã ghi nhận', note: payload.note || '' });
   invoice.paid = money(invoice.paid) + amount;
-  const available = money(invoice.deposit) + invoice.paid - money(invoice.refunded);
-  invoice.due = Math.max(0, invoice.total - available);
-  invoice.surplus = Math.max(0, available - invoice.total);
   invoice.lastMethod = payload.method || 'Tiền mặt';
-  if (invoice.due === 0 && invoice.surplus === 0) { invoice.status = 'Đã thanh toán'; invoice.paidAt = new Date().toISOString(); }
-  else invoice.status = 'Chờ thanh toán';
+  refreshInvoicePayment(invoice);
   audit(state, 'Thu tiền hóa đơn', 'PHIEU_THU', invoice.id, `${amount} · ${invoice.lastMethod}`);
+  return touch(state);
+}
+
+export function payInvoiceGroup(current, invoiceIds, payload = {}) {
+  const state = deepClone(current);
+  const selectedIds = [...new Set(invoiceIds || [])];
+  if (!selectedIds.length) throw new Error('Vui lòng chọn ít nhất một hóa đơn để thanh toán gộp.');
+  const invoices = selectedIds.map((invoiceId) => state.invoices.find((item) => item.id === invoiceId && item.status !== 'Đã hủy'));
+  if (invoices.some((item) => !item)) throw new Error('Có hóa đơn không tồn tại hoặc đã bị hủy.');
+  const groupIds = [...new Set(invoices.map((invoice) => invoiceGroupId(state, invoice)))];
+  if (groupIds.length !== 1) throw new Error('Chỉ được thanh toán gộp các phòng thuộc cùng một mã nhóm đặt phòng.');
+  const totalDue = invoices.reduce((sum, invoice) => sum + money(invoice.due), 0);
+  const amount = money(payload.amount);
+  if (!amount) throw new Error('Số tiền thu phải lớn hơn 0.');
+  if (amount > totalDue) throw new Error(`Thanh toán gộp tối đa ${totalDue.toLocaleString('vi-VN')} ₫. Tiền thừa nên xử lý trên từng hóa đơn.`);
+  const paymentGroupId = id('TTG');
+  let remaining = amount;
+  const ordered = [...invoices].sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)) || String(a.roomId).localeCompare(String(b.roomId)));
+  ordered.forEach((invoice) => {
+    const allocated = Math.min(remaining, money(invoice.due));
+    if (!allocated) return;
+    state.receipts.unshift({
+      id: id('PT'), paymentGroupId, bookingGroupId: groupIds[0], at: new Date().toISOString(), type: 'Thu thanh toán gộp',
+      invoiceId: invoice.id, roomId: invoice.roomId, guestName: invoice.guestName, amount: allocated,
+      method: payload.method || 'Tiền mặt', status: 'Đã ghi nhận', note: payload.note || ''
+    });
+    invoice.paid = money(invoice.paid) + allocated;
+    invoice.lastMethod = payload.method || 'Tiền mặt';
+    refreshInvoicePayment(invoice);
+    remaining -= allocated;
+  });
+  audit(state, 'Thu tiền gộp nhiều phòng', 'PHIEU_THU', paymentGroupId, `${groupIds[0]} · ${selectedIds.length} hóa đơn · ${amount}`);
   return touch(state);
 }
 
