@@ -1,6 +1,6 @@
 # KẾT QUẢ KIỂM THỬ
 
-Phiên bản: 4.1.0
+Phiên bản: 4.2.0
 Nền tảng: GitHub + Vercel Serverless + Supabase PostgreSQL
 
 Biên bản này được cập nhật sau khi chạy `npm run check`.
@@ -18,7 +18,8 @@ Phạm vi:
 - Giữ giá đã chốt theo từng đêm, gia hạn và chuyển phòng.
 - Phát sinh đồ giải khát và trừ tồn.
 - Trả phòng, hóa đơn và vệ sinh.
-- Thanh toán, tiền thừa và hoàn tiền.
+- Thanh toán riêng, thanh toán gộp nhiều phòng cùng nhóm, tiền thừa và hoàn tiền.
+- Trả phòng chặn thời gian sai, không tạo hóa đơn trùng và tự chuyển sang Thanh toán.
 - Bảo trì và mở lại phòng.
 - Nhập kho.
 - Dashboard và báo cáo tài chính.
