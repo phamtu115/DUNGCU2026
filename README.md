@@ -1,4 +1,4 @@
-# HOTEL MANAGER PRO 4.0.0
+# HOTEL MANAGER PRO 4.1.0
 
 Phần mềm quản lý nghiệp vụ khách sạn chạy trên **GitHub + Vercel + Supabase**, chuyển đổi từ bộ Google Sheets + Apps Script Hotel Manager Pro 3.1.1.
 
@@ -13,6 +13,8 @@ Phần mềm quản lý nghiệp vụ khách sạn chạy trên **GitHub + Verce
 - Một khách đặt nhiều phòng; mỗi phòng có phiếu riêng và chung mã nhóm.
 - Kiểm tra trùng lịch và sức chứa trước khi đặt.
 - Nhận phòng, lưu trú, đồ giải khát/dịch vụ và tự trừ minibar.
+- Gia hạn có kiểm tra lịch đặt tiếp theo; chuyển phòng có lịch sử và tự tạo phiếu vệ sinh phòng cũ.
+- Chụp giá theo từng đêm khi đặt phòng, không thay đổi hóa đơn lịch sử khi bảng giá được sửa sau đó.
 - Trả phòng, tính tối thiểu một đêm, phụ thu, giảm tiền có lý do, phí dịch vụ và VAT.
 - Hóa đơn, thu nhiều lần, tiền cọc, công nợ và hoàn tiền thừa.
 - In hóa đơn với logo và thông tin khách sạn.
@@ -27,6 +29,7 @@ Phần mềm quản lý nghiệp vụ khách sạn chạy trên **GitHub + Verce
 - `index.html`, `styles.css`, `src/`: giao diện web không phụ thuộc framework, tải nhanh và không có lỗi Output Directory.
 - `api/`: Vercel Serverless API; khóa Supabase chỉ nằm phía máy chủ.
 - `supabase/migrations/`: bảng JSONB, RLS và hàm lưu nguyên tử kiểm tra phiên bản.
+- Supabase giữ 50 bản dữ liệu gần nhất trong `hotel_app_state_history` để hỗ trợ phục hồi sự cố.
 - `tests/`: kiểm thử nghiệp vụ và API bằng Node.js, không cần cài thư viện ngoài.
 - `legacy-apps-script/`: gói Apps Script 3.1.1 dùng để đối chiếu và sao lưu.
 
