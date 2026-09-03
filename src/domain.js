@@ -21,11 +21,22 @@ export function roomRate(state, room, at = new Date()) {
   return money(day === 0 || day === 6 ? rate.weekend : rate.weekday);
 }
 
-export function roomAvailable(state, roomId, start, end, ignoreBookingId = '') {
+function nightlyRateSnapshot(state, room, start, end, existing = {}) {
+  const snapshot = { ...existing };
+  const first = asDate(start);
+  for (let index = 0; index < nights(start, end); index += 1) {
+    const date = new Date(first.getTime() + index * 86400000);
+    const key = date.toISOString().slice(0, 10);
+    if (snapshot[key] === undefined) snapshot[key] = roomRate(state, room, date);
+  }
+  return snapshot;
+}
+
+export function roomAvailable(state, roomId, start, end, ignoreBookingId = '', ignoreStayId = '') {
   const room = state.rooms.find((item) => item.id === roomId && item.active);
   if (!room || ['Bảo trì', 'Tạm khóa'].includes(room.status)) return false;
   const bookingConflict = state.bookings.some((booking) => booking.id !== ignoreBookingId && booking.roomId === roomId && ACTIVE_BOOKING_STATUSES.includes(booking.status) && overlap(start, end, booking.arrival, booking.departure));
-  const stayConflict = state.stays.some((stay) => stay.roomId === roomId && stay.status === 'Đang ở' && overlap(start, end, stay.checkIn, stay.expectedCheckout));
+  const stayConflict = state.stays.some((stay) => stay.id !== ignoreStayId && stay.roomId === roomId && stay.status === 'Đang ở' && overlap(start, end, stay.checkIn, stay.expectedCheckout));
   const maintenance = state.maintenance.some((item) => item.roomId === roomId && !['Hoàn thành', 'Đã hủy'].includes(item.status));
   return !bookingConflict && !stayConflict && !maintenance;
 }
@@ -75,12 +86,13 @@ export function createBooking(current, payload) {
   roomIds.forEach((roomId, index) => {
     const room = state.rooms.find((item) => item.id === roomId);
     const expectedRate = weights[index];
+    const nightlyRates = nightlyRateSnapshot(state, room, payload.arrival, payload.departure);
     const deposit = index === roomIds.length - 1 ? money(payload.deposit) - distributed : Math.round(money(payload.deposit) * expectedRate / weightTotal);
     distributed += deposit;
     const booking = {
       id: id('DP'), groupId, createdAt: new Date().toISOString(), arrival: payload.arrival, departure: payload.departure,
       nights: nights(payload.arrival, payload.departure), roomId, roomType: room.roomType, rateId: state.rates.find((rate) => rate.roomType === room.roomType)?.id || '',
-      expectedRate, guestId: guest.id, guestName: guest.name, phone: guest.phone, guestCount: Math.max(1, Number(payload.guestCount || 1)),
+      expectedRate, nightlyRates, guestId: guest.id, guestName: guest.name, phone: guest.phone, guestCount: Math.max(1, Number(payload.guestCount || 1)),
       deposit: money(deposit), status: 'Đã xác nhận', channel: payload.channel || 'Trực tiếp', note: payload.note || ''
     };
     if (booking.guestCount > room.capacity) throw new Error(`${room.name} chỉ chứa tối đa ${room.capacity} khách.`);
@@ -112,12 +124,63 @@ export function checkIn(current, bookingId, actualCheckIn = new Date().toISOStri
     id: id('LT'), bookingId: booking.id, roomId: room.id, roomType: room.roomType, rateId: booking.rateId,
     guestId: booking.guestId, guestName: booking.guestName, phone: booking.phone, guestCount: booking.guestCount,
     checkIn: actualCheckIn, expectedCheckout: booking.departure, checkout: '', nights: 1, averageRate: booking.expectedRate,
+    nightlyRates: { ...(booking.nightlyRates || nightlyRateSnapshot(state, room, booking.arrival, booking.departure)) },
+    roomHistory: [{ roomId: room.id, roomType: room.roomType, from: actualCheckIn, to: '' }],
     roomAmount: 0, surcharge: 0, deposit: booking.deposit, status: 'Đang ở', note: booking.note || ''
   };
   state.stays.unshift(stay);
   booking.status = 'Đã nhận phòng';
   room.status = 'Đang ở';
   audit(state, 'Nhận phòng', 'LUU_TRU', stay.id, room.id);
+  return touch(state);
+}
+
+export function extendStay(current, stayId, newCheckout) {
+  const state = deepClone(current);
+  const stay = state.stays.find((item) => item.id === stayId && item.status === 'Đang ở');
+  if (!stay) throw new Error('Không tìm thấy lượt lưu trú đang hoạt động.');
+  if (asDate(newCheckout) <= asDate(stay.expectedCheckout)) throw new Error('Thời gian gia hạn phải sau thời gian trả hiện tại.');
+  if (!roomAvailable(state, stay.roomId, stay.expectedCheckout, newCheckout, '', stay.id)) throw new Error(`Phòng ${stay.roomId} đã có lịch tiếp theo, không thể gia hạn.`);
+  const room = state.rooms.find((item) => item.id === stay.roomId);
+  stay.nightlyRates = nightlyRateSnapshot(state, room, stay.checkIn, newCheckout, stay.nightlyRates || {});
+  stay.expectedCheckout = newCheckout;
+  const booking = state.bookings.find((item) => item.id === stay.bookingId);
+  if (booking) {
+    booking.departure = newCheckout;
+    booking.nights = nights(booking.arrival, newCheckout);
+    booking.nightlyRates = { ...stay.nightlyRates };
+  }
+  audit(state, 'Gia hạn lưu trú', 'LUU_TRU', stay.id, `${stay.roomId} → ${newCheckout}`);
+  return touch(state);
+}
+
+export function transferRoom(current, stayId, newRoomId, movedAt = new Date().toISOString(), reason = '') {
+  const state = deepClone(current);
+  const stay = state.stays.find((item) => item.id === stayId && item.status === 'Đang ở');
+  if (!stay) throw new Error('Không tìm thấy lượt lưu trú đang hoạt động.');
+  if (stay.roomId === newRoomId) throw new Error('Phòng chuyển đến phải khác phòng hiện tại.');
+  if (asDate(movedAt) < asDate(stay.checkIn) || asDate(movedAt) >= asDate(stay.expectedCheckout)) throw new Error('Thời gian chuyển phòng phải nằm trong thời gian lưu trú.');
+  const oldRoom = state.rooms.find((item) => item.id === stay.roomId);
+  const newRoom = state.rooms.find((item) => item.id === newRoomId && item.active);
+  if (!newRoom || !roomAvailable(state, newRoomId, movedAt, stay.expectedCheckout)) throw new Error('Phòng chuyển đến không còn trống trong thời gian lưu trú còn lại.');
+  const previousRoomId = stay.roomId;
+  const history = Array.isArray(stay.roomHistory) && stay.roomHistory.length
+    ? stay.roomHistory
+    : [{ roomId: previousRoomId, roomType: stay.roomType, from: stay.checkIn, to: '' }];
+  history[history.length - 1].to = movedAt;
+  history.push({ roomId: newRoom.id, roomType: newRoom.roomType, from: movedAt, to: '' });
+  stay.roomHistory = history;
+  stay.nightlyRates = nightlyRateSnapshot(state, newRoom, movedAt, stay.expectedCheckout, stay.nightlyRates || {});
+  for (const [date, rate] of Object.entries(nightlyRateSnapshot(state, newRoom, movedAt, stay.expectedCheckout))) stay.nightlyRates[date] = rate;
+  stay.roomId = newRoom.id;
+  stay.roomType = newRoom.roomType;
+  stay.rateId = state.rates.find((item) => item.active && item.roomType === newRoom.roomType)?.id || '';
+  stay.averageRate = roomRate(state, newRoom, movedAt);
+  state.moves.unshift({ id: id('CP'), stayId: stay.id, bookingId: stay.bookingId, guestName: stay.guestName, fromRoomId: previousRoomId, toRoomId: newRoom.id, movedAt, reason: String(reason || '').trim(), oldRate: roomRate(state, oldRoom, movedAt), newRate: stay.averageRate });
+  oldRoom.status = 'Chờ vệ sinh';
+  newRoom.status = 'Đang ở';
+  state.housekeeping.unshift({ id: id('VS'), createdAt: movedAt, roomId: previousRoomId, type: 'Vệ sinh sau chuyển phòng', priority: 'Ưu tiên', status: 'Chờ xử lý', assignee: '', startedAt: '', completedAt: '', note: reason || '' });
+  audit(state, 'Chuyển phòng', 'CHUYEN_PHONG', stay.id, `${previousRoomId} → ${newRoom.id}${reason ? ` · ${reason}` : ''}`);
   return touch(state);
 }
 
@@ -160,7 +223,11 @@ function calculateRoomAmount(state, stay, checkout) {
   const count = nights(start, checkout);
   const room = state.rooms.find((item) => item.id === stay.roomId);
   let total = 0;
-  for (let index = 0; index < count; index += 1) total += roomRate(state, room, new Date(start.getTime() + index * 86400000));
+  for (let index = 0; index < count; index += 1) {
+    const date = new Date(start.getTime() + index * 86400000);
+    const key = date.toISOString().slice(0, 10);
+    total += money(stay.nightlyRates?.[key] ?? roomRate(state, room, date));
+  }
   return { count, total, average: count ? Math.round(total / count) : 0 };
 }
 
@@ -183,7 +250,7 @@ export function checkOut(current, stayId, options = {}) {
   const initialSurplus = Math.max(0, money(stay.deposit) - total);
   const initiallyPaid = initialDue === 0 && initialSurplus === 0;
   const invoice = {
-    id: id('HD'), createdAt: new Date().toISOString(), stayId: stay.id, roomId: stay.roomId, guestName: stay.guestName,
+    id: id('HD'), createdAt: new Date().toISOString(), stayId: stay.id, roomId: stay.roomId, roomHistory: deepClone(stay.roomHistory || []), guestName: stay.guestName,
     checkIn: stay.checkIn, checkout, nights: roomCalculation.count, averageRate: roomCalculation.average,
     roomAmount: roomCalculation.total, serviceAmount, surcharge, discount, discountReason: options.discountReason || '',
     serviceFee, vat, total, deposit: money(stay.deposit), paid: 0, refunded: 0,
@@ -191,7 +258,8 @@ export function checkOut(current, stayId, options = {}) {
     status: initiallyPaid ? 'Đã thanh toán' : 'Chờ thanh toán', paidAt: initiallyPaid ? new Date().toISOString() : '', lastMethod: initiallyPaid ? 'Tiền cọc' : '', note: options.note || ''
   };
   state.invoices.unshift(invoice);
-  state.invoiceLines.push({ invoiceId: invoice.id, type: 'Tiền phòng', itemId: stay.roomId, name: `Tiền phòng ${stay.roomId}`, unit: 'Đêm', quantity: roomCalculation.count, unitPrice: roomCalculation.average, amount: roomCalculation.total, note: '' });
+  const roomLabel = (stay.roomHistory || []).map((item) => item.roomId).filter((value, index, values) => values.indexOf(value) === index).join(' → ') || stay.roomId;
+  state.invoiceLines.push({ invoiceId: invoice.id, type: 'Tiền phòng', itemId: stay.roomId, name: `Tiền phòng ${roomLabel}`, unit: 'Đêm', quantity: roomCalculation.count, unitPrice: roomCalculation.average, amount: roomCalculation.total, note: '' });
   charges.forEach((charge) => {
     charge.status = 'Đã lập hóa đơn'; charge.invoiceId = invoice.id;
     state.invoiceLines.push({ invoiceId: invoice.id, type: charge.type, itemId: charge.serviceId, name: charge.name, unit: charge.unit, quantity: charge.quantity, unitPrice: charge.unitPrice, amount: charge.amount, note: charge.note });
