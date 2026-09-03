@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   return send(res, 200, {
     ok: true,
     app: 'Hotel Manager Pro',
-    version: '4.1.0',
+    version: '4.2.0',
     environment: process.env.APP_ENV || 'production',
     supabaseConfigured: current.configured,
     accessKeyConfigured: accessConfigured(),
