@@ -1,4 +1,4 @@
-# HOTEL MANAGER PRO 4.2.0
+# HOTEL MANAGER PRO 4.2.1
 
 Phần mềm quản lý nghiệp vụ khách sạn chạy trên **GitHub + Vercel + Supabase**, chuyển đổi từ bộ Google Sheets + Apps Script Hotel Manager Pro 3.1.1.
 
