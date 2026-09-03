@@ -329,6 +329,7 @@ document.addEventListener('submit', async (event) => {
 });
 
 $('#nav').addEventListener('click', () => {});
+$('#modalClose').addEventListener('click', closeModal);
 $('#menuButton').addEventListener('click', () => { $('#sidebar').classList.toggle('open'); $('#sidebarBackdrop').classList.toggle('open'); });
 $('#sidebarBackdrop').addEventListener('click', () => { $('#sidebar').classList.remove('open'); $('#sidebarBackdrop').classList.remove('open'); });
 $('#refreshButton').addEventListener('click', async () => { setBusy(true); const result = await store.load(); if (result.requiresLogin) $('#loginModal').showModal(); else { ui.state = result.state; render(); toast('Đã tải dữ liệu mới nhất.'); } setBusy(false); });
