@@ -1,6 +1,6 @@
 # KẾT QUẢ KIỂM THỬ
 
-Phiên bản: 4.2.1
+Phiên bản: 4.2.2
 Nền tảng: GitHub + Vercel Serverless + Supabase PostgreSQL
 
 Biên bản này được cập nhật sau khi chạy `npm run check`.
