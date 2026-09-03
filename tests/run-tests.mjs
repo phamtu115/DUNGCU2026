@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createInitialState, validateState } from '../src/model.js';
 import {
   addCharge, availableRooms, checkIn, checkOut, completeMaintenance, createBooking, createMaintenance,
-  dashboard, extendStay, financeReport, nights, payInvoice, receiveStock, refundSurplus, roomAvailable,
+  dashboard, extendStay, financeReport, invoiceGroupId, nights, payInvoice, payInvoiceGroup, receiveStock, refundSurplus, roomAvailable,
   transferRoom, updateHousekeeping
 } from '../src/domain.js';
 import healthHandler from '../api/health.js';
@@ -66,7 +66,32 @@ await test('Ghi đồ giải khát tự trừ tồn kho', () => {
 });
 await test('Trả phòng tạo hóa đơn và công việc vệ sinh', () => {
   const stay = state.stays.find((item) => item.roomId === 'P01'); state = checkOut(state, stay.id, { checkout: '2026-09-08T12:00' });
-  assert.equal(state.invoices.length, 1); assert.equal(state.invoices[0].total, 520000); assert.equal(state.invoices[0].due, 20000); assert.equal(state.rooms.find((room) => room.id === 'P01').status, 'Chờ vệ sinh');
+  assert.equal(state.invoices.length, 1); assert.equal(state.invoices[0].total, 520000); assert.equal(state.invoices[0].due, 20000); assert.ok(state.invoices[0].groupId); assert.equal(state.invoices[0].roomHistory.at(-1).to, '2026-09-08T12:00'); assert.equal(state.rooms.find((room) => room.id === 'P01').status, 'Chờ vệ sinh');
+});
+await test('Trả phòng chặn thời gian trước lúc nhận và không tạo hóa đơn trùng', () => {
+  let checkoutState = createInitialState();
+  checkoutState = createBooking(checkoutState, { roomIds: ['P05'], guestName: 'Khách kiểm tra trả phòng', guestCount: 1, deposit: 0, arrival: '2026-09-07T14:00', departure: '2026-09-08T12:00' });
+  checkoutState = checkIn(checkoutState, checkoutState.bookings[0].id, '2026-09-07T14:00');
+  assert.throws(() => checkOut(checkoutState, checkoutState.stays[0].id, { checkout: '2026-09-07T13:00' }), /không được trước/);
+  checkoutState = checkOut(checkoutState, checkoutState.stays[0].id, { checkout: '2026-09-08T12:00' });
+  assert.throws(() => checkOut(checkoutState, checkoutState.stays[0].id, { checkout: '2026-09-08T12:00' }), /không hợp lệ/);
+});
+await test('Một người thanh toán gộp nhiều phòng và vẫn giữ hóa đơn riêng', () => {
+  let groupState = createInitialState();
+  groupState = createBooking(groupState, { roomIds: ['P01', 'P02'], guestName: 'Khách thanh toán gộp', phone: '0911000000', guestCount: 1, deposit: 0, arrival: '2026-09-07T14:00', departure: '2026-09-08T12:00' });
+  const bookings = groupState.bookings.filter((item) => item.phone === '0911000000');
+  bookings.forEach((booking) => { groupState = checkIn(groupState, booking.id, '2026-09-07T14:00'); });
+  [...groupState.stays].forEach((stay) => { groupState = checkOut(groupState, stay.id, { checkout: '2026-09-08T12:00' }); });
+  const groupId = bookings[0].groupId;
+  const invoices = groupState.invoices.filter((invoice) => invoiceGroupId(groupState, invoice) === groupId);
+  assert.equal(invoices.length, 2);
+  groupState = payInvoiceGroup(groupState, invoices.map((invoice) => invoice.id), { amount: 900000, method: 'Chuyển khoản', note: 'Thu một lần cho đoàn' });
+  const updated = groupState.invoices.filter((invoice) => invoiceGroupId(groupState, invoice) === groupId);
+  assert.equal(updated.reduce((sum, invoice) => sum + invoice.paid, 0), 900000);
+  assert.equal(updated.reduce((sum, invoice) => sum + invoice.due, 0), 400000);
+  const groupReceipts = groupState.receipts.filter((receipt) => receipt.bookingGroupId === groupId);
+  assert.ok(groupReceipts.length >= 1); assert.equal(new Set(groupReceipts.map((receipt) => receipt.paymentGroupId)).size, 1);
+  assert.equal(new Set(updated.map((invoice) => invoice.id)).size, 2);
 });
 await test('Thu dư, hoàn tiền thừa rồi khóa hóa đơn', () => {
   const invoice = state.invoices[0]; state = payInvoice(state, invoice.id, { amount: 30000, method: 'Tiền mặt' }); assert.equal(state.invoices[0].surplus, 10000); assert.equal(state.invoices[0].status, 'Chờ thanh toán');
