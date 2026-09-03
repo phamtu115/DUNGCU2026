@@ -33,8 +33,8 @@ Sau khi thêm hoặc thay đổi biến, phải **Redeploy**.
 
 ## 4. Kiểm tra sau triển khai
 
-1. Mở `https://TEN-MIEN-VERCEL/api/health`.
-2. Kết quả cần có `ok: true`, `supabaseConfigured: true`, `accessKeyConfigured: true`.
+1. Mở `https://TEN-MIEN-VERCEL/api/health?deep=1`.
+2. Kết quả cần có `ok: true`, `supabaseConfigured: true`, `accessKeyConfigured: true`, `databaseReachable: true`.
 3. Mở trang chính, nhập `APP_ACCESS_KEY`.
 4. Tạo một phiếu đặt thử, tải lại trang và kiểm tra dữ liệu vẫn còn.
 5. Thực hiện một ca thử: đặt → nhận → phát sinh → trả → thanh toán → vệ sinh.
