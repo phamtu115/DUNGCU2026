@@ -20,6 +20,9 @@ Phạm vi:
 - Trả phòng, hóa đơn và vệ sinh.
 - Thanh toán riêng, thanh toán gộp nhiều phòng cùng nhóm, tiền thừa và hoàn tiền.
 - Trả phòng chặn thời gian sai, không tạo hóa đơn trùng và tự chuyển sang Thanh toán.
+- Tiền phòng có thể điều chỉnh tại Thanh toán, có lưu lý do điều chỉnh.
+- Phụ thu và giảm tiền chuyển sang bước Thanh toán.
+- Thanh toán gộp hiển thị chi tiết dịch vụ/minibar theo từng phòng.
 - Bảo trì và mở lại phòng.
 - Nhập kho.
 - Dashboard và báo cáo tài chính.
@@ -27,10 +30,11 @@ Phạm vi:
 
 ## Kết quả thực tế
 
-- Kiểm tra tệp/cấu hình build: **ĐẠT** — 14 tệp bắt buộc và 7 tệp JavaScript hợp lệ.
-- Kiểm thử nghiệp vụ/API/đồng bộ: **21/21 ĐẠT**.
+- Kiểm tra build: **ĐẠT** — 12 tệp bắt buộc và 7 tệp JavaScript hợp lệ.
+- Static build: **ĐẠT** — `public/` sẵn sàng cho Vercel.
+- Kiểm thử nghiệp vụ/API/đồng bộ: **23/23 ĐẠT**.
 - Không có thư viện ngoài cần cài đặt; không phát sinh lỗi phụ thuộc.
 - Mã trình duyệt không chứa `SUPABASE_SERVICE_ROLE_KEY`.
-- Bước build tạo đủ `public/index.html`, `public/styles.css` và bốn mô-đun trong `public/src/`; Output Directory của Vercel được cố định là `public`.
+- Output Directory của Vercel được cố định là `public`.
 
-Ngày kiểm thử: 02/09/2026.
+Ngày kiểm thử và kích hoạt Production Deployment: 05/09/2026.
