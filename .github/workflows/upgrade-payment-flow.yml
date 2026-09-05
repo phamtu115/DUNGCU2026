@@ -1,0 +1,36 @@
+name: Upgrade hotel payment flow
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/upgrade-payment-flow.yml'
+      - 'scripts/upgrade-payment-flow.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Apply payment upgrade
+        run: node scripts/upgrade-payment-flow.mjs
+      - name: Commit upgraded runtime files
+        run: |
+          if git diff --quiet -- src/app.js src/domain.js; then
+            echo "No runtime changes required"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app.js src/domain.js
+          git commit -m "Move adjustments to payment and add grouped service details"
+          git push
