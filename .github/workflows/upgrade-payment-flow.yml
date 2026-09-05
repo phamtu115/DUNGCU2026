@@ -20,9 +20,11 @@ jobs:
           ref: main
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
       - name: Apply payment upgrade
         run: node scripts/upgrade-payment-flow.mjs
+      - name: Verify build and tests
+        run: npm run check
       - name: Commit upgraded runtime files
         run: |
           if git diff --quiet -- src/app.js src/domain.js; then
