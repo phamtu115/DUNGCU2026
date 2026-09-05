@@ -243,9 +243,9 @@ export function checkOut(current, stayId, options = {}) {
   const roomCalculation = calculateRoomAmount(state, stay, checkout);
   const charges = state.charges.filter((item) => item.stayId === stay.id && item.status === 'Chưa lập hóa đơn');
   const serviceAmount = charges.reduce((sum, item) => sum + money(item.amount), 0);
-  const surcharge = money(options.surcharge || stay.surcharge);
-  const discount = money(options.discount || 0);
-  if (discount > 0 && !String(options.discountReason || '').trim()) throw new Error('Giảm tiền phải có lý do.');
+  // Phụ thu/giảm tiền được xử lý tại bước Thanh toán, không xử lý tại Trả phòng.
+  const surcharge = 0;
+  const discount = 0;
   const subtotal = roomCalculation.total + serviceAmount + surcharge - discount;
   const serviceFee = Math.round(Math.max(0, subtotal) * Number(state.settings.serviceFeeRate || 0));
   const vat = Math.round(Math.max(0, subtotal + serviceFee) * Number(state.settings.vatRate || 0));
@@ -260,7 +260,7 @@ export function checkOut(current, stayId, options = {}) {
     groupId: booking?.groupId || '', guestId: stay.guestId || booking?.guestId || '', phone: stay.phone || booking?.phone || '',
     roomId: stay.roomId, roomHistory: finalRoomHistory, guestName: stay.guestName,
     checkIn: stay.checkIn, checkout, nights: roomCalculation.count, averageRate: roomCalculation.average,
-    roomAmount: roomCalculation.total, serviceAmount, surcharge, discount, discountReason: options.discountReason || '',
+    roomAmount: roomCalculation.total, serviceAmount, surcharge, discount, discountReason: '', roomAdjustmentReason: '',
     serviceFee, vat, total, deposit: money(stay.deposit), paid: 0, refunded: 0,
     due: initialDue, surplus: initialSurplus,
     status: initiallyPaid ? 'Đã thanh toán' : 'Chờ thanh toán', paidAt: initiallyPaid ? new Date().toISOString() : '', lastMethod: initiallyPaid ? 'Tiền cọc' : '', note: options.note || ''
@@ -299,6 +299,48 @@ function refreshInvoicePayment(invoice) {
     invoice.status = 'Chờ thanh toán';
     invoice.paidAt = '';
   }
+}
+
+export function adjustInvoice(current, invoiceId, payload = {}) {
+  const state = deepClone(current);
+  const invoice = state.invoices.find((item) => item.id === invoiceId && item.status !== 'Đã hủy');
+  if (!invoice) throw new Error('Không tìm thấy hóa đơn.');
+  if (money(invoice.paid) > 0) throw new Error('Hóa đơn đã phát sinh thanh toán. Không thể sửa tiền phòng/phụ thu/giảm tiền.');
+
+  const oldRoomAmount = money(invoice.roomAmount);
+  const roomAmount = payload.roomAmount === undefined || payload.roomAmount === '' ? oldRoomAmount : money(payload.roomAmount);
+  const surcharge = money(payload.surcharge ?? invoice.surcharge);
+  const discount = money(payload.discount ?? invoice.discount);
+  const roomAdjustmentReason = String(payload.roomAdjustmentReason ?? invoice.roomAdjustmentReason ?? '').trim();
+  const discountReason = String(payload.discountReason ?? invoice.discountReason ?? '').trim();
+
+  if (roomAmount !== oldRoomAmount && !roomAdjustmentReason) throw new Error('Khi sửa tiền phòng, vui lòng nhập lý do điều chỉnh giá phòng.');
+  if (discount > 0 && !discountReason) throw new Error('Giảm tiền phải có lý do.');
+
+  const subtotal = Math.max(0, roomAmount + money(invoice.serviceAmount) + surcharge - discount);
+  const serviceFee = Math.round(subtotal * Number(state.settings.serviceFeeRate || 0));
+  const vat = Math.round((subtotal + serviceFee) * Number(state.settings.vatRate || 0));
+  const total = Math.max(0, subtotal + serviceFee + vat);
+
+  invoice.roomAmount = roomAmount;
+  invoice.surcharge = surcharge;
+  invoice.discount = discount;
+  invoice.discountReason = discountReason;
+  invoice.roomAdjustmentReason = roomAdjustmentReason;
+  invoice.serviceFee = serviceFee;
+  invoice.vat = vat;
+  invoice.total = total;
+
+  const roomLine = state.invoiceLines.find((line) => line.invoiceId === invoice.id && line.type === 'Tiền phòng');
+  if (roomLine) {
+    roomLine.amount = roomAmount;
+    roomLine.unitPrice = invoice.nights ? Math.round(roomAmount / invoice.nights) : roomAmount;
+    roomLine.note = roomAdjustmentReason;
+  }
+  refreshInvoicePayment(invoice);
+  audit(state, 'Điều chỉnh hóa đơn tại thanh toán', 'HOA_DON', invoice.id,
+    'Tiền phòng ' + roomAmount + ' · Phụ thu ' + surcharge + ' · Giảm ' + discount);
+  return touch(state);
 }
 
 export function payInvoice(current, invoiceId, payload) {
