@@ -83,3 +83,18 @@ Chạy `npm run check` để xác nhận cú pháp, cấu hình Vercel/Supabase,
 - docs/BO_TAI_LIEU_CAI_DAT_VA_NHAN_BAN.md
 - docs/CHECKLIST_TRIEN_KHAI_NGHIEM_THU.md
 - docs/DEPLOY_VERCEL_SUPABASE.md
+
+## Cài đặt từ USB và nhân bản phần mềm
+
+Tài liệu đầy đủ: [docs/HUONG_DAN_CAI_DAT_TU_USB.md](docs/HUONG_DAN_CAI_DAT_TU_USB.md).
+
+Bộ script USB:
+
+- [scripts/usb/README.md](scripts/usb/README.md)
+- `export-usb-package.ps1` / `export-usb-package.sh`: đóng gói mã nguồn sang USB, tự loại trừ secret và dữ liệu.
+- `check-environment.ps1` / `check-environment.sh`: kiểm tra Node.js, tệp bắt buộc và chạy `npm run check`.
+- `deploy-vercel.ps1` / `deploy-vercel.sh`: triển khai preview hoặc production.
+- `verify-production.ps1` / `verify-production.sh`: kiểm tra `/api/health?deep=1`.
+- `local-server.mjs`: chạy bản demo cục bộ trên `http://localhost:4173`.
+
+USB chỉ là bộ mã nguồn/công cụ bàn giao. Mỗi khách sạn phải có GitHub repository, Vercel Project, Supabase Project và APP_ACCESS_KEY riêng.
