@@ -4,7 +4,7 @@ const ROW_ID = 'hotel-manager-pro';
 const MAX_BODY_BYTES = 3_500_000;
 
 async function currentRow() {
-  const rows = await supabaseFetch(\`/rest/v1/hotel_app_state?id=eq.\${ROW_ID}&select=state,version,updated_at\`, { method: 'GET' });
+  const rows = await supabaseFetch(`/rest/v1/hotel_app_state?id=eq.${ROW_ID}&select=state,version,updated_at`, { method: 'GET' });
   return Array.isArray(rows) && rows.length ? rows[0] : null;
 }
 function stateForClient(rawState) {
