@@ -199,12 +199,12 @@ function renderBookings() {
 }
 
 function bookingTable() {
-  const rows = filteredBookings().slice(0, 300);
+  const rows = filteredBookings().slice(0, 1000);
   return `<div class="table-wrap"><table class="table"><thead><tr><th>Mã nhóm / Phiếu</th><th>Phòng</th><th>Khách</th><th>Nhận–trả</th><th>Giá / Cọc</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${rows.map((item) => `<tr><td><b>${esc(item.groupId)}</b><span class="sub">${esc(item.id)}</span></td><td><b>${esc(item.roomId)}</b><span class="sub">${esc(item.roomType)}</span></td><td>${esc(item.guestName)}<span class="sub">${esc(item.phone)}</span></td><td>${dateTime(item.arrival)}<span class="sub">→ ${dateTime(item.departure)} · ${item.nights} đêm</span></td><td>${money(item.expectedRate)}<span class="sub">Cọc ${money(item.deposit)}</span></td><td><span class="status ${statusClass(item.status)}">${esc(item.status)}</span></td><td>${['Chờ xác nhận', 'Đã xác nhận'].includes(item.status) ? `<button class="button success small" data-action="checkin" data-id="${esc(item.id)}">Nhận phòng</button> <button class="button danger small" data-action="cancel-booking" data-id="${esc(item.id)}">Hủy</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">Chưa có đặt phòng.</td></tr>'}</tbody></table></div>`;
 }
 
 function staysTable() {
-  const rows = filteredStays();
+  const rows = filteredStays().slice(0, 1000);
   return `<div class="table-wrap"><table class="table"><thead><tr><th>Mã lưu trú</th><th>Phòng</th><th>Khách</th><th>Nhận phòng</th><th>Trả dự kiến</th><th>Cọc</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${rows.map((item) => `<tr><td>${esc(item.id)}</td><td><b>${esc(item.roomId)}</b>${item.roomHistory?.length > 1 ? `<span class="sub">Đã chuyển ${item.roomHistory.length - 1} lần</span>` : ''}</td><td>${esc(item.guestName)}<span class="sub">${esc(item.phone)}</span></td><td>${dateTime(item.checkIn)}</td><td>${dateTime(item.expectedCheckout)}</td><td>${money(item.deposit)}</td><td><span class="status ${statusClass(item.status)}">${esc(item.status)}</span></td><td>${item.status === 'Đang ở' ? `<button class="button small" data-action="open-extend" data-id="${esc(item.id)}">Gia hạn</button> <button class="button small" data-action="open-transfer" data-id="${esc(item.id)}">Chuyển phòng</button> <button class="button primary small" data-action="open-checkout" data-id="${esc(item.id)}">Trả phòng</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="8" class="empty">Chưa có lượt lưu trú.</td></tr>'}</tbody></table></div>`;
 }
 
@@ -223,7 +223,7 @@ function renderServices() {
   <div class="section-head"><h2>Phát sinh gần đây</h2></div><div class="table-wrap"><table class="table"><thead><tr><th>Thời gian</th><th>Phòng</th><th>Nội dung</th><th>SL</th><th>Thành tiền</th><th>Trạng thái</th></tr></thead><tbody>${ui.state.charges.slice(0, 100).map((item) => `<tr><td>${dateTime(item.at)}</td><td>${esc(item.roomId)}</td><td>${esc(item.name)}</td><td>${item.quantity} ${esc(item.unit)}</td><td>${money(item.amount)}</td><td>${esc(item.status)}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">Chưa có phát sinh.</td></tr>'}</tbody></table></div>`;
 }
 function paymentsContent() {
-  const filteredInvoices = ui.state.invoices.filter(paymentFilterMatches);
+  const filteredInvoices = ui.state.invoices.filter(paymentFilterMatches).slice(0, 1000);
   const groups = new Map();
   ui.state.invoices.forEach((invoice) => {
     const groupId = invoiceGroupId(ui.state, invoice);
