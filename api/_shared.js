@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
   'Cache-Control': 'no-store, max-age=0'
@@ -21,19 +23,23 @@ export function config() {
   };
 }
 
-export function authorized(req) {
-  const expected = String(process.env.APP_ACCESS_KEY || '');
-  if (!expected) return false;
+export function accessKeyHash(value) {
+  return createHash('sha256').update(String(value || '')).digest('hex');
+}
+function actualAccessKey(req) {
   const header = String(req.headers.authorization || '');
-  const actual = header.startsWith('Bearer ') ? header.slice(7) : '';
-  if (actual.length !== expected.length) return false;
+  return header.startsWith('Bearer ') ? header.slice(7) : '';
+}
+function sameValue(actual, expected) {
+  if (!actual || !expected || actual.length !== expected.length) return false;
   let difference = 0;
-  for (let index = 0; index < actual.length; index += 1) {
-    difference |= actual.charCodeAt(index) ^ expected.charCodeAt(index);
-  }
+  for (let index = 0; index < actual.length; index += 1) difference |= actual.charCodeAt(index) ^ expected.charCodeAt(index);
   return difference === 0;
 }
-
+export function authorized(req, storedHash = '') {
+  const actual = actualAccessKey(req);
+  return sameValue(actual, String(process.env.APP_ACCESS_KEY || '')) || sameValue(accessKeyHash(actual), String(storedHash || ''));
+}
 export function accessConfigured() {
   return String(process.env.APP_ACCESS_KEY || '').length >= 12;
 }

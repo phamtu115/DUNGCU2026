@@ -77,7 +77,7 @@ export class HotelStore {
     return result;
   }
 
-  async save(state) {
+  async save(state, options = {}) {
     validateState(state);
     if (this.mode !== 'supabase') {
       this.state = state;
@@ -85,7 +85,7 @@ export class HotelStore {
       return { local: true };
     }
     const { response, body } = await request('/api/state', {
-      method: 'POST', body: JSON.stringify({ state, expectedVersion: this.version })
+      method: 'POST', body: JSON.stringify({ state, expectedVersion: this.version, ...(options.newAccessKey ? { newAccessKey: options.newAccessKey } : {}) })
     });
     if (response.status === 409) {
       const error = new Error('Dữ liệu đã thay đổi ở thiết bị khác. Hệ thống đang tải lại để tránh ghi đè.');
@@ -98,6 +98,15 @@ export class HotelStore {
     localSave(state);
     this.lastError = '';
     return { local: false, version: this.version };
+  }
+
+  async changeAccessKey(newAccessKey) {
+    const value = String(newAccessKey || '').trim();
+    if (value.length < 12) throw new Error('Mã truy cập phải có ít nhất 12 ký tự.');
+    if (this.mode !== 'supabase') throw new Error('Đổi mã truy cập cần kết nối Supabase trên Vercel.');
+    const result = await this.save(this.state, { newAccessKey: value });
+    this.setAccessKey(value);
+    return result;
   }
 
   exportJson() {
