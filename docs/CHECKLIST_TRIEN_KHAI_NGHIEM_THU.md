@@ -111,3 +111,16 @@
 - [ ] Commit/tag đã bàn giao.
 - [ ] Ngày triển khai.
 - [ ] Ngày kiểm tra lại.
+
+## I. USB và bàn giao
+
+- [ ] Đã chạy script đóng gói USB.
+- [ ] USB không có `.env`, Secret key, PIN tài chính hoặc dữ liệu khách thật.
+- [ ] Có `USB_PACKAGE_INFO.txt`.
+- [ ] Đã chạy `npm run check` trên bản lấy từ USB.
+- [ ] Đã kiểm tra cú pháp các script USB.
+- [ ] Đã kiểm tra `/api/health?deep=1`.
+- [ ] Có bản mã nguồn ở GitHub và commit/tag bàn giao.
+- [ ] Có Supabase Project riêng.
+- [ ] Có Vercel Project riêng.
+- [ ] Đã bàn giao quy trình sao lưu và khôi phục.
