@@ -17,7 +17,9 @@ Không đưa Secret key vào mã nguồn, GitHub hoặc biến bắt đầu bằ
 3. Framework Preset chọn **Other**.
 4. Root Directory để trống. Build Command dùng `npm run build`; Output Directory là `public`. Các giá trị này cũng đã được khóa trong `vercel.json` và `package.json` để lần triển khai sau không phụ thuộc cấu hình cũ trên Dashboard.
 
-## 3. Khai báo Environment Variables
+## Lưu ý: GitHub/Vercel không tự chạy SQL migration. Nếu API báo thiếu bảng hotel_app_state, phải chạy tệp migration trong SQL Editor một lần.
+
+3. Khai báo Environment Variables
 
 Tạo bốn biến cho Production, Preview và Development:
 

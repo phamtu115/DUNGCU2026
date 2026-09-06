@@ -44,6 +44,14 @@ export default async function handler(req, res) {
     return send(res, 200, { ok: true, version: Number(saved.current_version), updatedAt: saved.updated_at });
   } catch (error) {
     console.error('state api error', error);
+    const schemaMissing = /Could not find the table|relation .* does not exist|schema cache/i.test(String(error.message || ''));
+    if (schemaMissing) {
+      return send(res, 503, {
+        ok: false,
+        error: 'DATABASE_SCHEMA_MISSING',
+        message: 'Supabase chưa có bảng public.hotel_app_state. Hãy chạy supabase/migrations/001_hotel_manager.sql trong SQL Editor rồi tải lại ứng dụng.'
+      });
+    }
     return send(res, Number(error.status || 500), { ok: false, error: error.code || 'SERVER_ERROR', message: error.message || 'Không thể xử lý dữ liệu.' });
   }
 }

@@ -82,3 +82,7 @@ grant execute on function public.save_hotel_state(text, bigint, jsonb) to servic
 
 create index if not exists hotel_app_state_updated_at_idx on public.hotel_app_state(updated_at desc);
 create index if not exists hotel_app_state_history_created_at_idx on public.hotel_app_state_history(id, created_at desc);
+
+
+-- Yêu cầu PostgREST nạp lại schema ngay sau khi chạy migration.
+notify pgrst, 'reload schema';

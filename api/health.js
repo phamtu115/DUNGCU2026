@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     } catch (error) {
       console.error('health deep check failed', { status: error.status || 500, code: error.code || 'SUPABASE_ERROR' });
       databaseReachable = false;
-      databaseStatus = 'unreachable';
+      databaseStatus = /Could not find the table|relation .* does not exist|schema cache/i.test(String(error.message || '')) ? 'schema_missing' : 'unreachable';
     }
   }
   return send(res, 200, {
