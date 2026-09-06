@@ -76,3 +76,10 @@ Xem [docs/SHEET_MAPPING.md](docs/SHEET_MAPPING.md). Toàn bộ 21 trang Google S
 ## Trạng thái kiểm thử
 
 Chạy `npm run check` để xác nhận cú pháp, cấu hình Vercel/Supabase, chống lộ service key và toàn bộ luồng nghiệp vụ trọng yếu trước mỗi lần triển khai.
+
+
+## Bộ tài liệu triển khai và nhân bản
+
+- docs/BO_TAI_LIEU_CAI_DAT_VA_NHAN_BAN.md
+- docs/CHECKLIST_TRIEN_KHAI_NGHIEM_THU.md
+- docs/DEPLOY_VERCEL_SUPABASE.md
