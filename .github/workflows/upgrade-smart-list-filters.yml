@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/upgrade-smart-list-filters.yml'
-      - 'scripts/upgrade-smart-list-filters.mjs'
+      - 'scripts/upgrade-smart-list-filters-v2.mjs'
   workflow_dispatch:
 
 permissions:
@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: '24'
       - name: Apply smart filters
-        run: node scripts/upgrade-smart-list-filters.mjs
+        run: node scripts/upgrade-smart-list-filters-v2.mjs
       - name: Verify build and tests
         run: npm run check
       - name: Commit upgraded runtime file
