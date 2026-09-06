@@ -10,7 +10,13 @@ const store = new HotelStore();
 const ui = {
   page: 'dashboard', state: null, busy: false, financeUnlockedUntil: 0,
   booking: { arrival: isoLocal(), departure: isoLocal(new Date(Date.now() + 86400000)), query: '', floor: '', roomType: '', selected: new Set() },
-  roomFilter: { query: '', floor: '', status: '' }, finance: { from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10), to: new Date().toISOString().slice(0, 10) }
+  roomFilter: { query: '', floor: '', status: '' },
+  listFilters: {
+    bookings: { room: '', date: '', guest: '', phone: '' },
+    stays: { room: '', date: '', guest: '', phone: '' },
+    payments: { room: '', date: '', guest: '', phone: '' }
+  },
+  finance: { from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10), to: new Date().toISOString().slice(0, 10) }
 };
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -134,22 +140,78 @@ function renderBookingSelected() {
   node.innerHTML = ui.booking.selected.size ? [...ui.booking.selected].map((roomId) => `<button type="button" class="selected-item" data-action="remove-room" data-id="${esc(roomId)}">${esc(roomId)} ×</button>`).join('') : '<span class="sub">Chưa chọn phòng.</span>';
 }
 
+
+function filterPhone(value) { return String(value || '').replace(/\D/g, ''); }
+function overlapsFilterDate(filterDate, startValue, endValue = startValue) {
+  if (!filterDate) return true;
+  const dayStart = new Date(filterDate + 'T00:00:00');
+  const dayEnd = new Date(filterDate + 'T23:59:59.999');
+  const start = new Date(startValue || 0);
+  const end = new Date(endValue || startValue || 0);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return false;
+  return start <= dayEnd && end >= dayStart;
+}
+function listTextMatches(item, filter, phoneOverride = '') {
+  const roomOk = !filter.room || normalize(item.roomId || '').includes(normalize(filter.room));
+  const guestOk = !filter.guest || normalize(item.guestName || '').includes(normalize(filter.guest));
+  const wantedPhone = filterPhone(filter.phone);
+  const phoneOk = !wantedPhone || filterPhone(phoneOverride || item.phone || '').includes(wantedPhone);
+  return roomOk && guestOk && phoneOk;
+}
+function filteredBookings() {
+  const filter = ui.listFilters.bookings;
+  return ui.state.bookings.filter((item) => listTextMatches(item, filter) && overlapsFilterDate(filter.date, item.arrival, item.departure));
+}
+function filteredStays() {
+  const filter = ui.listFilters.stays;
+  return ui.state.stays.filter((item) => listTextMatches(item, filter) && overlapsFilterDate(filter.date, item.checkIn, item.checkout || item.expectedCheckout));
+}
+function invoicePhone(invoice) {
+  const stay = ui.state.stays.find((item) => item.id === invoice.stayId);
+  const booking = ui.state.bookings.find((item) => item.id === (invoice.bookingId || stay?.bookingId));
+  return invoice.phone || stay?.phone || booking?.phone || '';
+}
+function paymentFilterMatches(invoice) {
+  const filter = ui.listFilters.payments;
+  const at = invoice.createdAt || invoice.checkout;
+  return listTextMatches(invoice, filter, invoicePhone(invoice)) && overlapsFilterDate(filter.date, at, at);
+}
+function listFilterToolbar(scope, dateLabel = 'Ngày') {
+  const filter = ui.listFilters[scope];
+  return '<div class="toolbar">' +
+    '<div class="field"><label>Lọc phòng</label><input data-list-filter-scope="' + esc(scope) + '" data-list-filter-key="room" value="' + esc(filter.room) + '" placeholder="Gõ số/mã phòng"></div>' +
+    '<div class="field"><label>' + esc(dateLabel) + '</label><input type="date" data-list-filter-scope="' + esc(scope) + '" data-list-filter-key="date" value="' + esc(filter.date) + '"></div>' +
+    '<div class="field"><label>Lọc khách</label><input data-list-filter-scope="' + esc(scope) + '" data-list-filter-key="guest" value="' + esc(filter.guest) + '" placeholder="Gõ tên khách"></div>' +
+    '<div class="field"><label>Số điện thoại</label><input inputmode="tel" data-list-filter-scope="' + esc(scope) + '" data-list-filter-key="phone" value="' + esc(filter.phone) + '" placeholder="Gõ số điện thoại"></div>' +
+    '<button type="button" class="button" data-action="clear-list-filter" data-scope="' + esc(scope) + '">Xóa lọc</button></div>';
+}
+function refreshListFilter(scope) {
+  if (scope === 'bookings' && $('#bookingListWrap')) $('#bookingListWrap').innerHTML = bookingTable();
+  if (scope === 'stays' && $('#staysListWrap')) $('#staysListWrap').innerHTML = staysTable();
+  if (scope === 'payments' && $('#paymentsListWrap')) $('#paymentsListWrap').innerHTML = paymentsContent();
+}
+
 function renderBookings() {
   const b = ui.booking; const floors = [...new Set(ui.state.rooms.map((room) => room.floor))].sort(); const types = [...new Set(ui.state.rooms.map((room) => room.roomType))];
   return `<div class="card"><form id="bookingForm"><div class="form-grid"><div class="field"><label>Nhận dự kiến *</label><input name="arrival" id="bookingArrival" type="datetime-local" value="${esc(b.arrival)}" required></div><div class="field"><label>Trả dự kiến *</label><input name="departure" id="bookingDeparture" type="datetime-local" value="${esc(b.departure)}" required></div><div class="field"><label>Gõ tìm phòng</label><input id="bookingQuery" value="${esc(b.query)}" placeholder="Ví dụ: phòng đơn"></div><div class="field"><label>Tầng</label><select id="bookingFloor"><option value="">Tất cả</option>${floors.map((item) => `<option ${String(item) === b.floor ? 'selected' : ''}>${item}</option>`).join('')}</select></div><div class="field"><label>Loại phòng</label><select id="bookingType"><option value="">Tất cả</option>${types.map((item) => `<option ${item === b.roomType ? 'selected' : ''}>${esc(item)}</option>`).join('')}</select></div><div class="field"><label>Tên khách *</label><input name="guestName" required></div><div class="field"><label>Số điện thoại</label><input name="phone"></div><div class="field"><label>Số khách / phòng</label><input name="guestCount" type="number" min="1" value="1"></div><div class="field"><label>Tổng tiền cọc</label><input name="deposit" type="text" inputmode="numeric" data-money min="0" value="0"></div><div class="field"><label>Kênh đặt</label><select name="channel"><option>Trực tiếp</option><option>Điện thoại</option><option>Website</option><option>Đại lý</option></select></div><div class="field span-2"><label>Ghi chú</label><input name="note"></div></div>
   <div class="section-head"><div><h2>Chọn phòng còn trống</h2><p id="bookingResultCount"></p></div></div>${bookingTypeSummary()}<div id="bookingSelected" class="selected-list"></div><div id="bookingRoomGrid" class="room-grid">${bookingRoomCards()}</div><div class="actions"><button class="button primary">Lưu đặt phòng</button></div></form></div>
-  <div class="section-head"><div><h2>Danh sách đặt phòng</h2><p>Mỗi phòng là một dòng; cùng đoàn dùng chung mã nhóm.</p></div></div>${bookingTable()}`;
+  <div class="section-head"><div><h2>Danh sách đặt phòng</h2><p>Mỗi phòng là một dòng; cùng đoàn dùng chung mã nhóm. Tìm nhanh khách đã đặt theo phòng, ngày, tên hoặc số điện thoại.</p></div></div>${listFilterToolbar('bookings', 'Ngày đặt / lưu trú')}<div id="bookingListWrap">${bookingTable()}</div>`;
 }
 
 function bookingTable() {
-  const rows = ui.state.bookings.slice(0, 300);
+  const rows = filteredBookings().slice(0, 300);
   return `<div class="table-wrap"><table class="table"><thead><tr><th>Mã nhóm / Phiếu</th><th>Phòng</th><th>Khách</th><th>Nhận–trả</th><th>Giá / Cọc</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${rows.map((item) => `<tr><td><b>${esc(item.groupId)}</b><span class="sub">${esc(item.id)}</span></td><td><b>${esc(item.roomId)}</b><span class="sub">${esc(item.roomType)}</span></td><td>${esc(item.guestName)}<span class="sub">${esc(item.phone)}</span></td><td>${dateTime(item.arrival)}<span class="sub">→ ${dateTime(item.departure)} · ${item.nights} đêm</span></td><td>${money(item.expectedRate)}<span class="sub">Cọc ${money(item.deposit)}</span></td><td><span class="status ${statusClass(item.status)}">${esc(item.status)}</span></td><td>${['Chờ xác nhận', 'Đã xác nhận'].includes(item.status) ? `<button class="button success small" data-action="checkin" data-id="${esc(item.id)}">Nhận phòng</button> <button class="button danger small" data-action="cancel-booking" data-id="${esc(item.id)}">Hủy</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">Chưa có đặt phòng.</td></tr>'}</tbody></table></div>`;
 }
 
-function renderStays() {
-  return `<div class="table-wrap"><table class="table"><thead><tr><th>Mã lưu trú</th><th>Phòng</th><th>Khách</th><th>Nhận phòng</th><th>Trả dự kiến</th><th>Cọc</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${ui.state.stays.map((item) => `<tr><td>${esc(item.id)}</td><td><b>${esc(item.roomId)}</b>${item.roomHistory?.length > 1 ? `<span class="sub">Đã chuyển ${item.roomHistory.length - 1} lần</span>` : ''}</td><td>${esc(item.guestName)}<span class="sub">${esc(item.phone)}</span></td><td>${dateTime(item.checkIn)}</td><td>${dateTime(item.expectedCheckout)}</td><td>${money(item.deposit)}</td><td><span class="status ${statusClass(item.status)}">${esc(item.status)}</span></td><td>${item.status === 'Đang ở' ? `<button class="button small" data-action="open-extend" data-id="${esc(item.id)}">Gia hạn</button> <button class="button small" data-action="open-transfer" data-id="${esc(item.id)}">Chuyển phòng</button> <button class="button primary small" data-action="open-checkout" data-id="${esc(item.id)}">Trả phòng</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="8" class="empty">Chưa có lượt lưu trú.</td></tr>'}</tbody></table></div>`;
+function staysTable() {
+  const rows = filteredStays();
+  return `<div class="table-wrap"><table class="table"><thead><tr><th>Mã lưu trú</th><th>Phòng</th><th>Khách</th><th>Nhận phòng</th><th>Trả dự kiến</th><th>Cọc</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${rows.map((item) => `<tr><td>${esc(item.id)}</td><td><b>${esc(item.roomId)}</b>${item.roomHistory?.length > 1 ? `<span class="sub">Đã chuyển ${item.roomHistory.length - 1} lần</span>` : ''}</td><td>${esc(item.guestName)}<span class="sub">${esc(item.phone)}</span></td><td>${dateTime(item.checkIn)}</td><td>${dateTime(item.expectedCheckout)}</td><td>${money(item.deposit)}</td><td><span class="status ${statusClass(item.status)}">${esc(item.status)}</span></td><td>${item.status === 'Đang ở' ? `<button class="button small" data-action="open-extend" data-id="${esc(item.id)}">Gia hạn</button> <button class="button small" data-action="open-transfer" data-id="${esc(item.id)}">Chuyển phòng</button> <button class="button primary small" data-action="open-checkout" data-id="${esc(item.id)}">Trả phòng</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="8" class="empty">Chưa có lượt lưu trú.</td></tr>'}</tbody></table></div>`;
 }
 
+
+function renderStays() {
+  return `${listFilterToolbar('stays', 'Ngày lưu trú')}<div id="staysListWrap">${staysTable()}</div>`;
+}
 function chargeRowHtml(services, index = 0) {
   return `<div class="charge-row form-grid" data-charge-row style="margin-top:12px;padding:12px;border:1px solid #d8e0ea;border-radius:12px"><div class="field span-2"><label>Dịch vụ / đồ giải khát</label><select name="serviceId" required><option value="">Chọn dịch vụ</option>${services.map((item) => `<option value="${esc(item.id)}">${esc(item.name)} · ${money(item.price)}</option>`).join('')}</select></div><div class="field"><label>Số lượng</label><input name="quantity" type="number" min="1" value="1" required></div><div class="field" style="align-self:end"><button type="button" class="button danger small" data-action="remove-charge-row">Xóa dòng</button></div></div>`;
 }
@@ -160,14 +222,15 @@ function renderServices() {
   <div class="section-head"><h2>Tồn kho</h2></div><div class="grid grid-4">${services.filter((item) => item.trackStock).map((item) => `<div class="card kpi ${item.stock <= item.minStock ? 'red' : 'green'}"><small>${esc(item.name)} · ${esc(item.unit)}</small><strong>${item.stock}</strong><span>Tối thiểu ${item.minStock} · Giá bán ${money(item.price)}</span></div>`).join('')}</div>
   <div class="section-head"><h2>Phát sinh gần đây</h2></div><div class="table-wrap"><table class="table"><thead><tr><th>Thời gian</th><th>Phòng</th><th>Nội dung</th><th>SL</th><th>Thành tiền</th><th>Trạng thái</th></tr></thead><tbody>${ui.state.charges.slice(0, 100).map((item) => `<tr><td>${dateTime(item.at)}</td><td>${esc(item.roomId)}</td><td>${esc(item.name)}</td><td>${item.quantity} ${esc(item.unit)}</td><td>${money(item.amount)}</td><td>${esc(item.status)}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">Chưa có phát sinh.</td></tr>'}</tbody></table></div>`;
 }
-function renderPayments() {
+function paymentsContent() {
+  const filteredInvoices = ui.state.invoices.filter(paymentFilterMatches);
   const groups = new Map();
   ui.state.invoices.forEach((invoice) => {
     const groupId = invoiceGroupId(ui.state, invoice);
     if (!groups.has(groupId)) groups.set(groupId, []);
     groups.get(groupId).push(invoice);
   });
-  const groupCards = [...groups.entries()].filter(([, invoices]) => invoices.length > 1).map(([groupId, invoices]) => {
+  const groupCards = [...groups.entries()].filter(([, invoices]) => invoices.length > 1 && invoices.some(paymentFilterMatches)).map(([groupId, invoices]) => {
     const outstanding = invoices.filter((item) => Number(item.due || 0) > 0);
     const total = invoices.reduce((sum, item) => sum + Number(item.total || 0), 0);
     const deposit = invoices.reduce((sum, item) => sum + Number(item.deposit || 0), 0);
@@ -182,9 +245,13 @@ function renderPayments() {
     return `<div class="card payment-group"><div class="section-head"><div><h3>${esc(invoices[0].guestName)}</h3><p>${esc(groupId)} · ${invoices.length} phòng: ${esc(rooms)}</p></div><span class="status ${due ? 'waiting' : 'paid'}">${due ? 'Còn thanh toán' : 'Đã hoàn tất'}</span></div><div class="summary"><div><span>Tổng hóa đơn</span><b>${money(total)}</b></div><div><span>Cọc + đã thu</span><b>${money(deposit + paid)}</b></div><div><span>Phụ thu</span><b>${money(surcharge)}</b></div><div><span>Giảm tiền</span><b>${money(discount)}</b></div><div><span>Còn phải thu</span><b>${money(due)}</b></div></div>${paymentActions ? `<div class="actions">${paymentActions}</div>` : ''}</div>`;
   }).join('');
   return `${groupCards ? `<div class="section-head"><div><h2>Thanh toán gộp theo mã nhóm đặt phòng</h2><p>Một lần thu có thể phân bổ cho nhiều phòng; hóa đơn từng phòng vẫn được giữ riêng.</p></div></div><div class="grid grid-2">${groupCards}</div>` : ''}
-  <div class="section-head"><div><h2>Hóa đơn từng phòng</h2><p>Có thể thu riêng, thu nhiều lần hoặc in từng hóa đơn.</p></div></div><div class="table-wrap"><table class="table"><thead><tr><th>Hóa đơn</th><th>Nhóm / Phòng / Khách</th><th>Tiền phòng</th><th>Dịch vụ</th><th>Tổng</th><th>Cọc + Đã thu</th><th>Còn thu / Thừa</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${ui.state.invoices.map((item) => `<tr><td><b>${esc(item.id)}</b><span class="sub">${dateTime(item.createdAt)}</span></td><td><b>${esc(item.roomId)}</b><span class="sub">${esc(item.guestName)}</span><span class="sub">Nhóm ${esc(invoiceGroupId(ui.state, item))}</span></td><td>${money(item.roomAmount)}</td><td>${money(item.serviceAmount)}</td><td><b>${money(item.total)}</b></td><td>${money(item.deposit + item.paid)}</td><td>${item.due ? money(item.due) : item.surplus ? `Thừa ${money(item.surplus)}` : '0 ₫'}</td><td><span class="status ${statusClass(item.status)}">${esc(item.status)}</span></td><td><button class="button small" data-action="print-invoice" data-id="${esc(item.id)}">In</button> ${Number(item.paid || 0) === 0 && item.status !== 'Đã hủy' ? `<button class="button primary small" data-action="open-payment" data-id="${esc(item.id)}">${item.due > 0 ? 'Sửa & thu riêng' : 'Sửa hóa đơn'}</button>` : ''} ${item.surplus > 0 ? `<button class="button danger small" data-action="refund" data-id="${esc(item.id)}">Hoàn thừa</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="9" class="empty">Chưa có hóa đơn.</td></tr>'}</tbody></table></div>`;
+  <div class="section-head"><div><h2>Hóa đơn từng phòng</h2><p>Có thể thu riêng, thu nhiều lần hoặc in từng hóa đơn.</p></div></div><div class="table-wrap"><table class="table"><thead><tr><th>Hóa đơn</th><th>Nhóm / Phòng / Khách</th><th>Tiền phòng</th><th>Dịch vụ</th><th>Tổng</th><th>Cọc + Đã thu</th><th>Còn thu / Thừa</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${filteredInvoices.map((item) => `<tr><td><b>${esc(item.id)}</b><span class="sub">${dateTime(item.createdAt)}</span></td><td><b>${esc(item.roomId)}</b><span class="sub">${esc(item.guestName)}</span><span class="sub">Nhóm ${esc(invoiceGroupId(ui.state, item))}</span></td><td>${money(item.roomAmount)}</td><td>${money(item.serviceAmount)}</td><td><b>${money(item.total)}</b></td><td>${money(item.deposit + item.paid)}</td><td>${item.due ? money(item.due) : item.surplus ? `Thừa ${money(item.surplus)}` : '0 ₫'}</td><td><span class="status ${statusClass(item.status)}">${esc(item.status)}</span></td><td><button class="button small" data-action="print-invoice" data-id="${esc(item.id)}">In</button> ${Number(item.paid || 0) === 0 && item.status !== 'Đã hủy' ? `<button class="button primary small" data-action="open-payment" data-id="${esc(item.id)}">${item.due > 0 ? 'Sửa & thu riêng' : 'Sửa hóa đơn'}</button>` : ''} ${item.surplus > 0 ? `<button class="button danger small" data-action="refund" data-id="${esc(item.id)}">Hoàn thừa</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="9" class="empty">Chưa có hóa đơn.</td></tr>'}</tbody></table></div>`;
 }
 
+
+function renderPayments() {
+  return `${listFilterToolbar('payments', 'Ngày hóa đơn')}<div id="paymentsListWrap">${paymentsContent()}</div>`;
+}
 function renderHousekeeping() {
   const rooms = ui.state.rooms.filter((room) => room.active);
   return `<div class="grid grid-2"><div><div class="section-head"><h2>Công việc vệ sinh</h2></div><div class="table-wrap"><table class="table"><thead><tr><th>Phòng</th><th>Công việc</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${ui.state.housekeeping.map((item) => `<tr><td><b>${esc(item.roomId)}</b></td><td>${esc(item.type)}<span class="sub">${dateTime(item.createdAt)}</span></td><td><span class="status ${statusClass(item.status)}">${esc(item.status)}</span></td><td>${item.status === 'Chờ xử lý' ? `<button class="button small" data-action="housekeeping-start" data-id="${esc(item.id)}">Bắt đầu</button>` : ''}${item.status !== 'Hoàn thành' ? ` <button class="button success small" data-action="housekeeping-done" data-id="${esc(item.id)}">Hoàn thành</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">Chưa có công việc vệ sinh.</td></tr>'}</tbody></table></div></div>
@@ -297,6 +364,11 @@ document.addEventListener('click', async (event) => {
     actionNode.closest('[data-charge-row]')?.remove();
   }
   if (action === 'filter-booking-type') { ui.booking.roomType = actionNode.dataset.type || ''; render(); }
+  if (action === 'clear-list-filter') {
+    const scope = actionNode.dataset.scope;
+    if (ui.listFilters[scope]) { ui.listFilters[scope] = { room: '', date: '', guest: '', phone: '' }; render(); }
+    return;
+  }
   if (action === 'checkin') await mutate((state) => checkIn(state, itemId), 'Đã nhận phòng.');
   if (action === 'cancel-booking' && confirm('Xác nhận hủy phiếu đặt phòng?')) await mutate((state) => cancelBooking(state, itemId), 'Đã hủy đặt phòng.');
   if (action === 'open-checkout') checkoutModal(itemId);
@@ -331,6 +403,8 @@ document.addEventListener('click', async (event) => {
 document.addEventListener('input', (event) => {
   if (event.target.id === 'roomQuery') { ui.roomFilter.query = event.target.value; $('#roomGrid').innerHTML = roomCardsHtml(); }
   if (event.target.id === 'bookingQuery') { ui.booking.query = event.target.value; $('#bookingRoomGrid').innerHTML = bookingRoomCards(); }
+  const listScope = event.target.dataset?.listFilterScope; const listKey = event.target.dataset?.listFilterKey;
+  if (listScope && listKey && ui.listFilters[listScope]) { ui.listFilters[listScope][listKey] = event.target.value; refreshListFilter(listScope); }
 });
 
 document.addEventListener('blur', (event) => { if (event.target.matches?.('[data-money]')) formatMoneyInput(event.target); }, true);
