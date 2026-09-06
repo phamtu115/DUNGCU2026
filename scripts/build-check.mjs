@@ -7,14 +7,16 @@ const required = [
   'index.html', 'styles.css', 'package.json', 'vercel.json',
   'api/_shared.js', 'api/health.js', 'api/state.js',
   'src/model.js', 'src/domain.js', 'src/store.js', 'src/app.js',
-  'scripts/build-static.mjs'
+  'scripts/build-static.mjs',
+  'scripts/usb/export-usb-package.mjs',
+  'scripts/usb/local-server.mjs'
 ];
 const sourceOnly = ['.env.example', 'supabase/migrations/001_hotel_manager.sql', 'README.md'];
 
 const failures = [];
 for (const file of required) if (!fs.existsSync(path.join(root, file))) failures.push(`Thiếu ${file}`);
 
-const javascript = required.filter((file) => file.endsWith('.js'));
+const javascript = required.filter((file) => file.endsWith('.js') || file.endsWith('.mjs'));
 for (const file of javascript) {
   try { execFileSync(process.execPath, ['--check', path.join(root, file)], { stdio: 'pipe' }); }
   catch (error) { failures.push(`Lỗi cú pháp ${file}: ${error.stderr?.toString() || error.message}`); }
