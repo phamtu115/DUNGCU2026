@@ -1,4 +1,4 @@
-export const APP_VERSION = '4.2.2';
+export const APP_VERSION = '4.2.3';
 export const ROOM_STATUSES = ['Phòng trống', 'Đã đặt', 'Đang ở', 'Chờ vệ sinh', 'Bảo trì', 'Tạm khóa'];
 export const ACTIVE_BOOKING_STATUSES = ['Chờ xác nhận', 'Đã xác nhận', 'Đã nhận phòng'];
 

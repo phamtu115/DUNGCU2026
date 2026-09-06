@@ -32,7 +32,7 @@ Phạm vi:
 
 - Kiểm tra build: **ĐẠT** — 12 tệp bắt buộc và 7 tệp JavaScript hợp lệ.
 - Static build: **ĐẠT** — `public/` sẵn sàng cho Vercel.
-- Kiểm thử nghiệp vụ/API/đồng bộ: **23/23 ĐẠT**.
+- Kiểm thử nghiệp vụ/API/đồng bộ: **24/24 ĐẠT**.
 - Không có thư viện ngoài cần cài đặt; không phát sinh lỗi phụ thuộc.
 - Mã trình duyệt không chứa `SUPABASE_SERVICE_ROLE_KEY`.
 - Output Directory của Vercel được cố định là `public`.

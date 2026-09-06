@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createInitialState, validateState } from '../src/model.js';
 import {
-  addCharge, availableRooms, checkIn, checkOut, completeMaintenance, createBooking, createMaintenance,
+  addCharge, adjustInvoice, availableRooms, checkIn, checkOut, completeMaintenance, createBooking, createMaintenance,
   dashboard, extendStay, financeReport, invoiceGroupId, nights, payInvoice, payInvoiceGroup, receiveStock, refundSurplus, roomAvailable,
   transferRoom, updateHousekeeping
 } from '../src/domain.js';
@@ -68,6 +68,24 @@ await test('Trả phòng tạo hóa đơn và công việc vệ sinh', () => {
   const stay = state.stays.find((item) => item.roomId === 'P01'); state = checkOut(state, stay.id, { checkout: '2026-09-08T12:00' });
   assert.equal(state.invoices.length, 1); assert.equal(state.invoices[0].total, 520000); assert.equal(state.invoices[0].due, 20000); assert.ok(state.invoices[0].groupId); assert.equal(state.invoices[0].roomHistory.at(-1).to, '2026-09-08T12:00'); assert.equal(state.rooms.find((room) => room.id === 'P01').status, 'Chờ vệ sinh');
 });
+
+await test('Điều chỉnh hóa đơn tại Thanh toán giữ phụ thu và giảm tiền', () => {
+  let paymentState = createInitialState();
+  paymentState = createBooking(paymentState, { roomIds: ['P01'], guestName: 'Khách điều chỉnh hóa đơn', guestCount: 1, deposit: 0, arrival: '2026-09-07T14:00', departure: '2026-09-08T12:00' });
+  paymentState = checkIn(paymentState, paymentState.bookings[0].id, '2026-09-07T14:00');
+  paymentState = checkOut(paymentState, paymentState.stays[0].id, { checkout: '2026-09-08T12:00' });
+  const invoiceId = paymentState.invoices[0].id;
+  assert.equal(paymentState.invoices[0].surcharge, 0);
+  assert.equal(paymentState.invoices[0].discount, 0);
+  paymentState = adjustInvoice(paymentState, invoiceId, { surcharge: 100000, discount: 50000, discountReason: 'Ưu đãi khách hàng' });
+  assert.equal(paymentState.invoices[0].surcharge, 100000);
+  assert.equal(paymentState.invoices[0].discount, 50000);
+  assert.equal(paymentState.invoices[0].total, 550000);
+  assert.equal(paymentState.invoices[0].due, 550000);
+  assert.equal(paymentState.invoiceLines.find((line) => line.invoiceId === invoiceId && line.type === 'Tiền phòng').amount, 500000);
+  assert.throws(() => adjustInvoice(paymentState, invoiceId, { discount: 60000, discountReason: '' }), /Giảm tiền phải có lý do/);
+});
+
 await test('Trả phòng chặn thời gian trước lúc nhận và không tạo hóa đơn trùng', () => {
   let checkoutState = createInitialState();
   checkoutState = createBooking(checkoutState, { roomIds: ['P05'], guestName: 'Khách kiểm tra trả phòng', guestCount: 1, deposit: 0, arrival: '2026-09-07T14:00', departure: '2026-09-08T12:00' });
