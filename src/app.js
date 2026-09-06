@@ -23,7 +23,7 @@ const moneyRaw = (value) => String(value ?? '').replace(/[^\d-]/g, '');
 const formatMoneyInput = (input) => { const raw = moneyRaw(input.value); input.value = raw === '' ? '' : new Intl.NumberFormat('vi-VN').format(Number(raw)); };
 const formData = (form) => {
   const data = Object.fromEntries(new FormData(form).entries());
-  $('[data-money]', form).forEach((input) => { if (input.name) data[input.name] = moneyRaw(data[input.name]); });
+  $$('[data-money]', form).forEach((input) => { if (input.name) data[input.name] = moneyRaw(data[input.name]); });
   return data;
 };
 
@@ -44,7 +44,7 @@ function statusClass(status) {
   return 'booked';
 }
 
-function openModal(html) { $('#modalBody').innerHTML = html; $('#modal').showModal(); }
+function openModal(html) { $('#modalBody').innerHTML = `<div class="modal-content">${html}</div>`; $('#modal').showModal(); requestAnimationFrame(() => $('#modalBody input, #modalBody select, #modalBody textarea')?.focus()); }
 function closeModal() { $('#modal').close(); }
 
 async function mutate(action, successMessage) {
@@ -270,7 +270,7 @@ function transferRoomModal(stayId) {
 function maintenanceModal() { openModal(`<h2>Báo hỏng / bảo trì</h2><form id="maintenanceForm"><div class="form-grid"><div class="field span-2"><label>Phòng</label><select name="roomId" required><option value="">Chọn phòng</option>${ui.state.rooms.filter((room) => room.active).map((room) => `<option value="${esc(room.id)}">${esc(room.name)}</option>`).join('')}</select></div><div class="field span-2"><label>Mức độ</label><select name="priority"><option>Thường</option><option>Ưu tiên</option><option>Khẩn</option></select></div><div class="field span-4"><label>Sự cố</label><textarea name="issue" required></textarea></div></div><div class="actions"><button class="button danger">Tạo phiếu bảo trì</button></div></form>`); }
 function financeModal() {
   if (!ui.state.settings.financePinHash) {
-    openModal(`<h2>Đặt PIN tài chính lần đầu</h2><form id="setupFinancePinForm"><label>PIN mới (4–8 số)<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" required></label><label>Nhập lại PIN<input name="confirmPin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" required></label><p class="sub">Phần mềm không có PIN mặc định. Người quản lý tự đặt PIN khi sử dụng lần đầu.</p><div class="actions"><button class="button primary">Lưu PIN</button></div></form>`);
+    openModal(`<h2>Đặt PIN tài chính lần đầu</h2><form id="setupFinancePinForm"><label>PIN mới (4–8 số)<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="new-password" autofocus required></label><label>Nhập lại PIN<input name="confirmPin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="new-password" required></label><p class="sub">Phần mềm không có PIN mặc định. Người quản lý tự đặt PIN khi sử dụng lần đầu.</p><div class="actions"><button class="button primary">Lưu PIN</button></div></form>`);
     return;
   }
   openModal(`<h2>Mở khóa tài chính</h2><form id="financePinForm"><label>Mã PIN quản lý<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" required></label><div class="actions"><button class="button primary">Xác thực</button></div></form>`);
@@ -290,10 +290,10 @@ document.addEventListener('click', async (event) => {
   if (action === 'toggle-room') { ui.booking.selected.has(itemId) ? ui.booking.selected.delete(itemId) : ui.booking.selected.add(itemId); $('#bookingRoomGrid').innerHTML = bookingRoomCards(); renderBookingSelected(); }
   if (action === 'remove-room') { ui.booking.selected.delete(itemId); $('#bookingRoomGrid').innerHTML = bookingRoomCards(); renderBookingSelected(); }
   if (action === 'add-charge-row') {
-    const form = $('#chargeForm'); const rows = $('.charge-row', form); $('#chargeRows', form).insertAdjacentHTML('beforeend', chargeRowHtml(ui.state.services.filter((item) => item.active), rows.length));
+    const form = $('#chargeForm'); const rows = $$('.charge-row', form); $('#chargeRows', form).insertAdjacentHTML('beforeend', chargeRowHtml(ui.state.services.filter((item) => item.active), rows.length));
   }
   if (action === 'remove-charge-row') {
-    const rows = $('.charge-row', $('#chargeForm')); if (rows.length <= 1) return toast('Cần giữ lại ít nhất một dòng dịch vụ.', true);
+    const rows = $$('.charge-row', $('#chargeForm')); if (rows.length <= 1) return toast('Cần giữ lại ít nhất một dòng dịch vụ.', true);
     actionNode.closest('[data-charge-row]')?.remove();
   }
   if (action === 'filter-booking-type') { ui.booking.roomType = actionNode.dataset.type || ''; render(); }
@@ -352,7 +352,7 @@ document.addEventListener('submit', async (event) => {
   event.preventDefault(); const form = event.target; const data = formData(form);
   if (form.id === 'bookingForm') { data.roomIds = [...ui.booking.selected]; data.arrival = ui.booking.arrival; data.departure = ui.booking.departure; await mutate((state) => createBooking(state, data), 'Đã lưu đặt phòng.'); ui.booking.selected.clear(); }
   if (form.id === 'chargeForm') {
-    const items = $('[data-charge-row]', form).map((row) => ({ serviceId: $('select[name="serviceId"]', row)?.value || '', quantity: $('input[name="quantity"]', row)?.value || '1' })).filter((item) => item.serviceId);
+    const items = $$('[data-charge-row]', form).map((row) => ({ serviceId: $('select[name="serviceId"]', row)?.value || '', quantity: $('input[name="quantity"]', row)?.value || '1' })).filter((item) => item.serviceId);
     if (!items.length) return toast('Vui lòng chọn ít nhất một dịch vụ.', true);
     const saved = await mutate((state) => items.reduce((next, item) => addCharge(next, { stayId: data.stayId, ...item, note: data.note || '' }), state), 'Đã ghi toàn bộ dịch vụ phát sinh.');
     if (saved) form.reset();

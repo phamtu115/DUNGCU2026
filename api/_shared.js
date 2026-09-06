@@ -11,9 +11,10 @@ export function send(res, status, payload) {
 }
 
 export function config() {
-  const url = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
-  const secretKey = String(process.env.SUPABASE_SECRET_KEY || '');
-  const legacyServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '');
+  const rawUrl = String(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+  const url = rawUrl.replace(/\/(?:rest|auth|storage)\/v1\/?$/i, '').replace(/\/$/, '');
+  const secretKey = String(process.env.SUPABASE_SECRET_KEY || '').trim();
+  const legacyServiceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
   const key = secretKey || legacyServiceRoleKey;
   return {
     url,
