@@ -35,6 +35,23 @@ Phiên bản 4.2 bổ sung trả phòng an toàn, tự chuyển sang Thanh toán
 - `tests/`: kiểm thử nghiệp vụ và API bằng Node.js, không cần cài thư viện ngoài.
 - `legacy-apps-script/`: gói Apps Script 3.1.1 dùng để đối chiếu và sao lưu.
 
+## Nhân bản cho nhiều khách sạn
+
+Repository này được dùng làm **bản nguồn chuẩn (MASTER)**. Có thể sao chép nguyên bộ mã nguồn sang repository GitHub mới để triển khai cho từng khách sạn.
+
+Tài liệu bắt buộc:
+
+- [docs/HUONG_DAN_NHAN_BAN_KHACH_SAN.md](docs/HUONG_DAN_NHAN_BAN_KHACH_SAN.md) — quy trình từ bản MASTER → GitHub mới → Supabase mới → Vercel mới.
+- [docs/HUONG_DAN_SU_DUNG_KHACH_SAN.md](docs/HUONG_DAN_SU_DUNG_KHACH_SAN.md) — hướng dẫn vận hành cho nhân viên khách sạn.
+- [docs/DEPLOY_VERCEL_SUPABASE.md](docs/DEPLOY_VERCEL_SUPABASE.md) — triển khai Vercel/Supabase.
+- `.env.example` — mẫu biến môi trường, **không chứa secret thật**.
+
+### Nguyên tắc nhân bản
+
+**Mỗi khách sạn = 1 GitHub repository + 1 Vercel Project + 1 Supabase Project + 1 APP_ACCESS_KEY riêng.** Không dùng chung database hoặc secret giữa các khách sạn. fileciteturn5file0
+
+Không sao chép dữ liệu khách thật, file `.env`, Supabase Secret key hoặc backup dữ liệu vào repository mới.
+
 ## Chạy kiểm thử
 
 Yêu cầu Node.js 20 trở lên:
@@ -49,13 +66,12 @@ Có thể mở `index.html` bằng một máy chủ tĩnh. Khi không có API/Su
 
 ## Triển khai
 
-Xem [docs/DEPLOY_VERCEL_SUPABASE.md](docs/DEPLOY_VERCEL_SUPABASE.md).
-
 Các biến môi trường bắt buộc trên Vercel:
 
 - `SUPABASE_URL`
 - `SUPABASE_SECRET_KEY`
 - `APP_ACCESS_KEY`
+- `APP_ENV`
 
 Không commit tệp `.env` và không đặt Secret key trong mã trình duyệt.
 
@@ -73,28 +89,12 @@ Xem [docs/SHEET_MAPPING.md](docs/SHEET_MAPPING.md). Toàn bộ 21 trang Google S
 - Sao lưu dữ liệu: nhấn **Sao lưu** trong ứng dụng.
 - Khôi phục: **Cài đặt → Khôi phục bản sao**.
 
-## Trạng thái kiểm thử
-
-Chạy `npm run check` để xác nhận cú pháp, cấu hình Vercel/Supabase, chống lộ service key và toàn bộ luồng nghiệp vụ trọng yếu trước mỗi lần triển khai.
-
-
 ## Bộ tài liệu triển khai và nhân bản
 
-- docs/BO_TAI_LIEU_CAI_DAT_VA_NHAN_BAN.md
-- docs/CHECKLIST_TRIEN_KHAI_NGHIEM_THU.md
-- docs/DEPLOY_VERCEL_SUPABASE.md
-
-## Cài đặt từ USB và nhân bản phần mềm
-
-Tài liệu đầy đủ: [docs/HUONG_DAN_CAI_DAT_TU_USB.md](docs/HUONG_DAN_CAI_DAT_TU_USB.md).
-
-Bộ script USB:
-
-- [scripts/usb/README.md](scripts/usb/README.md)
-- `export-usb-package.ps1` / `export-usb-package.sh`: đóng gói mã nguồn sang USB, tự loại trừ secret và dữ liệu.
-- `check-environment.ps1` / `check-environment.sh`: kiểm tra Node.js, tệp bắt buộc và chạy `npm run check`.
-- `deploy-vercel.ps1` / `deploy-vercel.sh`: triển khai preview hoặc production.
-- `verify-production.ps1` / `verify-production.sh`: kiểm tra `/api/health?deep=1`.
-- `local-server.mjs`: chạy bản demo cục bộ trên `http://localhost:4173`.
+- `docs/BO_TAI_LIEU_CAI_DAT_VA_NHAN_BAN.md`
+- `docs/CHECKLIST_TRIEN_KHAI_NGHIEM_THU.md`
+- `docs/DEPLOY_VERCEL_SUPABASE.md`
+- `docs/HUONG_DAN_NHAN_BAN_KHACH_SAN.md`
+- `docs/HUONG_DAN_SU_DUNG_KHACH_SAN.md`
 
 USB chỉ là bộ mã nguồn/công cụ bàn giao. Mỗi khách sạn phải có GitHub repository, Vercel Project, Supabase Project và APP_ACCESS_KEY riêng.
