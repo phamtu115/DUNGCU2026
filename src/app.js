@@ -550,6 +550,17 @@ document.addEventListener('submit', async (event) => {
 
 $('#nav').addEventListener('click', () => {});
 $('#modalClose').addEventListener('click', closeModal);
+function setDesktopMenuCollapsed(collapsed) {
+  $('#app').classList.toggle('menu-collapsed', collapsed);
+  const button = $('#sidebarToggle');
+  if (button) {
+    button.textContent = collapsed ? '›' : '‹';
+    button.setAttribute('aria-label', collapsed ? 'Hiện menu' : 'Ẩn menu');
+    button.title = collapsed ? 'Hiện menu' : 'Ẩn menu';
+  }
+  try { localStorage.setItem('hotel-menu-collapsed', collapsed ? '1' : '0'); } catch {}
+}
+$('#sidebarToggle').addEventListener('click', () => setDesktopMenuCollapsed(!$('#app').classList.contains('menu-collapsed')));
 $('#menuButton').addEventListener('click', () => { $('#sidebar').classList.toggle('open'); $('#sidebarBackdrop').classList.toggle('open'); });
 $('#sidebarBackdrop').addEventListener('click', () => { $('#sidebar').classList.remove('open'); $('#sidebarBackdrop').classList.remove('open'); });
 $('#refreshButton').addEventListener('click', async () => { setBusy(true); const result = await store.load(); if (result.requiresLogin) $('#loginModal').showModal(); else { ui.state = result.state; render(); toast('Đã tải dữ liệu mới nhất.'); } setBusy(false); });
@@ -563,7 +574,8 @@ document.addEventListener('change', async (event) => {
   const dataUrl = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); });
   await mutate((state) => { const next = deepClone(state); next.settings.logo = dataUrl; next.meta.revision += 1; next.meta.updatedAt = new Date().toISOString(); return next; }, 'Đã cập nhật logo.');
 });
-$('#loginForm').addEventListener('submit', async (event) => { event.preventDefault(); $('#loginError').textContent = ''; try { const result = await store.login($('#accessKeyInput').value); ui.state = result.state; $('#loginModal').close(); $('#app').classList.remove('hidden'); render(); } catch (error) { $('#loginError').textContent = error.message; } });
+$('#loginForm').addEventListener('submit', async (event) => { event.preventDefault(); $('#loginError').textContent = ''; try { const result = await store.login($('#accessKeyInput').value); ui.state = result.state; $('#loginModal').close(); $('#app').classList.remove('hidden');
+  try { setDesktopMenuCollapsed(localStorage.getItem('hotel-menu-collapsed') === '1'); } catch { setDesktopMenuCollapsed(false); } render(); } catch (error) { $('#loginError').textContent = error.message; } });
 
 async function start() {
   const result = await store.load(); ui.state = result.state;
