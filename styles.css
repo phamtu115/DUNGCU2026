@@ -17,3 +17,68 @@
   .app.menu-collapsed .sidebar{transform:translateX(-100%)}
   .app.menu-collapsed .sidebar.open{transform:translateX(0)}
 }
+
+/* Responsive layout: desktop / tablet / phone */
+@media(min-width:1400px){
+  .sidebar{width:290px}
+  .main{margin-left:290px}
+  .content{max-width:1680px;margin:0 auto;padding-left:32px;padding-right:32px}
+  .grid{gap:16px}
+  .card{padding:20px}
+}
+@media(min-width:1001px) and (max-width:1399px){
+  .sidebar{width:250px}
+  .main{margin-left:250px}
+  .content{padding:20px 22px 40px}
+  .topbar{padding:17px 22px 13px}
+}
+@media(min-width:801px) and (max-width:1000px){
+  .sidebar{width:220px;padding:20px 12px}
+  .main{margin-left:220px}
+  .brand{padding-bottom:18px}
+  .sidebar nav button{padding:11px 12px;font-size:14px}
+  .topbar{padding:15px 18px 12px}
+  .topbar h1{font-size:23px}
+  .content{padding:18px 16px 36px}
+  .grid-6{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid-4,.grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .room-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:800px){
+  body{overflow-x:hidden}
+  .sidebar{width:min(86vw,320px);transform:translateX(-100%);box-shadow:12px 0 36px rgba(15,70,96,.18)}
+  .sidebar.open{transform:translateX(0)}
+  .main,.app.menu-collapsed .main{margin-left:0}
+  .topbar{padding:12px 12px 10px;align-items:flex-start}
+  .topbar h1{font-size:20px;line-height:1.2}
+  .topbar p{font-size:12px;line-height:1.35}
+  .top-actions{gap:6px}
+  .content{padding:12px 10px 28px}
+  .grid-2,.grid-3,.grid-4,.grid-6{grid-template-columns:1fr}
+  .form-grid{grid-template-columns:1fr}
+  .span-2,.span-4{grid-column:span 1}
+  .room-grid{grid-template-columns:1fr}
+  .toolbar{display:grid;grid-template-columns:1fr;align-items:stretch}
+  .toolbar .field{min-width:0;width:100%}
+  .table-wrap{border-radius:12px}
+  .table{min-width:720px}
+  .card{padding:13px;border-radius:14px}
+  .kpi{padding:14px}
+  .kpi strong{font-size:23px}
+  .section-head{align-items:flex-start;flex-direction:column;margin:16px 0 10px}
+  .actions{justify-content:stretch}
+  .actions .button{flex:1 1 100%}
+  .modal{width:calc(100vw - 16px);max-height:92vh}
+  .modal>form{padding:18px 14px}
+  .notice{margin:0 10px 8px}
+}
+@media(max-width:480px){
+  .top-actions .button{padding:8px 9px}
+  .brand b{font-size:15px}
+  .brand small{font-size:11px}
+  .room-card{padding:13px}
+  .table{min-width:660px}
+  .chip{padding:7px 10px;font-size:13px}
+  input,select,textarea{font-size:16px}
+}
