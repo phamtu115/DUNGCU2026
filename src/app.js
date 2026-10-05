@@ -144,6 +144,43 @@ function renderBookingSelected() {
   node.innerHTML = ui.booking.selected.size ? [...ui.booking.selected].map((roomId) => `<button type="button" class="selected-item" data-action="remove-room" data-id="${esc(roomId)}">${esc(roomId)} ×</button>`).join('') : '<span class="sub">Chưa chọn phòng.</span>';
 }
 
+function bookingPriceTableHtml() {
+  const b = ui.booking;
+  const rates = ui.state.rates.filter((rate) => rate.active && (!b.roomType || rate.roomType === b.roomType));
+  if (!rates.length) return '<div class="empty">Chưa có bảng giá cho loại phòng đang chọn.</div>';
+  const rows = rates.map((rate) => {
+    const room = ui.state.rooms.find((item) => item.active && item.roomType === rate.roomType);
+    let estimated = 0; let detail = '';
+    if (room) {
+      try {
+        const quote = roomPriceQuote(ui.state, room, b.arrival, b.departure, b.priceMode);
+        estimated = quote.total;
+        detail = quote.count ? `${quote.count} ${quote.unit}` : '';
+      } catch {}
+    }
+    if (b.priceMode === 'Theo giờ') {
+      return `<tr><td><b>${esc(rate.roomType)}</b></td><td>${money(rate.hourlyFirst || 0)}</td><td>${money(rate.hourlySecond || 0)}</td><td>${money(rate.hourlyThird || 0)}</td><td>${money(rate.hourlyFromFourth || 0)}/giờ</td><td><b>${estimated ? money(estimated) : '—'}</b><span class="sub">${esc(detail)}</span></td></tr>`;
+    }
+    if (b.priceMode === 'Qua đêm') {
+      return `<tr><td><b>${esc(rate.roomType)}</b></td><td>${money(rate.overnight ?? rate.weekday ?? 0)}</td><td><b>${estimated ? money(estimated) : '—'}</b><span class="sub">${esc(detail)}</span></td></tr>`;
+    }
+    return `<tr><td><b>${esc(rate.roomType)}</b></td><td>${money(rate.weekday || 0)}</td><td>${money(rate.weekend || 0)}</td><td><b>${estimated ? money(estimated) : '—'}</b><span class="sub">${esc(detail)}</span></td></tr>`;
+  }).join('');
+
+  if (b.priceMode === 'Theo giờ') {
+    return `<div class="card" style="margin-top:14px"><div class="section-head"><div><h3>Bảng giá theo giờ</h3><p>Tiền phòng được cộng dồn: giờ đầu + giờ thứ 2 + giờ thứ 3 + mỗi giờ từ giờ thứ 4.</p></div></div><div class="table-wrap"><table class="table"><thead><tr><th>Loại phòng</th><th>Giờ đầu</th><th>Giờ thứ 2</th><th>Giờ thứ 3</th><th>Từ giờ thứ 4</th><th>Dự kiến</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  }
+  if (b.priceMode === 'Qua đêm') {
+    return `<div class="card" style="margin-top:14px"><div class="section-head"><div><h3>Bảng giá qua đêm</h3><p>Hiển thị giá qua đêm của từng loại phòng và tiền dự kiến theo thời gian đã chọn.</p></div></div><div class="table-wrap"><table class="table"><thead><tr><th>Loại phòng</th><th>Giá qua đêm</th><th>Dự kiến</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  }
+  return `<div class="card" style="margin-top:14px"><div class="section-head"><div><h3>Bảng giá theo ngày</h3><p>Giá được tính theo ngày thường/cuối tuần trong khoảng lưu trú.</p></div></div><div class="table-wrap"><table class="table"><thead><tr><th>Loại phòng</th><th>Ngày thường</th><th>Cuối tuần</th><th>Dự kiến</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
+function refreshBookingPriceTable() {
+  const node = $('#bookingPriceTable');
+  if (node) node.innerHTML = bookingPriceTableHtml();
+}
+
 
 function filterPhone(value) { return String(value || '').replace(/\D/g, ''); }
 function overlapsFilterDate(filterDate, startValue, endValue = startValue) {
@@ -198,7 +235,7 @@ function refreshListFilter(scope) {
 function renderBookings() {
   const b = ui.booking; const floors = [...new Set(ui.state.rooms.map((room) => room.floor))].sort(); const types = [...new Set(ui.state.rooms.map((room) => room.roomType))];
   return `<div class="card"><form id="bookingForm"><div class="form-grid"><div class="field span-2"><label>Loại tính giá phòng *</label><select name="priceMode" id="bookingPriceMode" required><option ${b.priceMode === 'Theo giờ' ? 'selected' : ''}>Theo giờ</option><option ${b.priceMode === 'Qua đêm' ? 'selected' : ''}>Qua đêm</option><option ${b.priceMode === 'Theo ngày' ? 'selected' : ''}>Theo ngày</option></select><span class="sub">Chọn ngay từ lúc đặt phòng; cách tính này được chốt theo phiếu đặt.</span></div><div class="field"><label>Nhận dự kiến *</label><input name="arrival" id="bookingArrival" type="datetime-local" value="${esc(b.arrival)}" required></div><div class="field"><label>Trả dự kiến *</label><input name="departure" id="bookingDeparture" type="datetime-local" value="${esc(b.departure)}" required></div><div class="field"><label>Gõ tìm phòng</label><input id="bookingQuery" value="${esc(b.query)}" placeholder="Ví dụ: phòng đơn"></div><div class="field"><label>Tầng</label><select id="bookingFloor"><option value="">Tất cả</option>${floors.map((item) => `<option ${String(item) === b.floor ? 'selected' : ''}>${item}</option>`).join('')}</select></div><div class="field"><label>Loại phòng</label><select id="bookingType"><option value="">Tất cả</option>${types.map((item) => `<option ${item === b.roomType ? 'selected' : ''}>${esc(item)}</option>`).join('')}</select></div><div class="field"><label>Tên khách *</label><input name="guestName" required></div><div class="field"><label>Số điện thoại</label><input name="phone"></div><div class="field"><label>Số khách / phòng</label><input name="guestCount" type="number" min="1" value="1"></div><div class="field"><label>Tổng tiền cọc</label><input name="deposit" type="text" inputmode="numeric" data-money min="0" value="0"></div><div class="field"><label>Kênh đặt</label><select name="channel"><option>Trực tiếp</option><option>Điện thoại</option><option>Website</option><option>Đại lý</option></select></div><div class="field span-2"><label>Ghi chú</label><input name="note"></div></div>
-  <div class="section-head"><div><h2>Chọn phòng còn trống</h2><p id="bookingResultCount"></p></div></div>${bookingTypeSummary()}<div id="bookingSelected" class="selected-list"></div><div id="bookingRoomGrid" class="room-grid">${bookingRoomCards()}</div><div class="actions"><button class="button primary">Lưu đặt phòng</button></div></form></div>
+  <div id="bookingPriceTable">${bookingPriceTableHtml()}</div><div class="section-head"><div><h2>Chọn phòng còn trống</h2><p id="bookingResultCount"></p></div></div>${bookingTypeSummary()}<div id="bookingSelected" class="selected-list"></div><div id="bookingRoomGrid" class="room-grid">${bookingRoomCards()}</div><div class="actions"><button class="button primary">Lưu đặt phòng</button></div></form></div>
   <div class="section-head"><div><h2>Danh sách đặt phòng</h2><p>Mỗi phòng là một dòng; loại tính giá được khóa ngay từ phiếu đặt để tránh nhầm khi trả phòng.</p></div></div>${listFilterToolbar('bookings', 'Ngày đặt / lưu trú')}<div id="bookingListWrap">${bookingTable()}</div>`;
 }
 
@@ -416,11 +453,11 @@ document.addEventListener('blur', (event) => { if (event.target.matches?.('[data
 document.addEventListener('change', (event) => {
   if (event.target.id === 'roomFloor') { ui.roomFilter.floor = event.target.value; $('#roomGrid').innerHTML = roomCardsHtml(); }
   if (event.target.id === 'roomStatus') { ui.roomFilter.status = event.target.value; $('#roomGrid').innerHTML = roomCardsHtml(); }
-  if (event.target.id === 'bookingArrival') { ui.booking.arrival = event.target.value; ui.booking.selected.clear(); $('#bookingRoomGrid').innerHTML = bookingRoomCards(); renderBookingSelected(); }
-  if (event.target.id === 'bookingDeparture') { ui.booking.departure = event.target.value; ui.booking.selected.clear(); $('#bookingRoomGrid').innerHTML = bookingRoomCards(); renderBookingSelected(); }
+  if (event.target.id === 'bookingArrival') { ui.booking.arrival = event.target.value; ui.booking.selected.clear(); $('#bookingRoomGrid').innerHTML = bookingRoomCards(); renderBookingSelected(); refreshBookingPriceTable(); }
+  if (event.target.id === 'bookingDeparture') { ui.booking.departure = event.target.value; ui.booking.selected.clear(); $('#bookingRoomGrid').innerHTML = bookingRoomCards(); renderBookingSelected(); refreshBookingPriceTable(); }
   if (event.target.id === 'bookingFloor') { ui.booking.floor = event.target.value; $('#bookingRoomGrid').innerHTML = bookingRoomCards(); }
-  if (event.target.id === 'bookingType') { ui.booking.roomType = event.target.value; $('#bookingRoomGrid').innerHTML = bookingRoomCards(); }
-  if (event.target.id === 'bookingPriceMode') { ui.booking.priceMode = event.target.value; ui.booking.selected.clear(); $('#bookingRoomGrid').innerHTML = bookingRoomCards(); renderBookingSelected(); }
+  if (event.target.id === 'bookingType') { ui.booking.roomType = event.target.value; $('#bookingRoomGrid').innerHTML = bookingRoomCards(); refreshBookingPriceTable(); }
+  if (event.target.id === 'bookingPriceMode') { ui.booking.priceMode = event.target.value; ui.booking.selected.clear(); $('#bookingRoomGrid').innerHTML = bookingRoomCards(); renderBookingSelected(); refreshBookingPriceTable(); }
   if (event.target.name === 'invoiceIds' && event.target.closest('#groupPaymentForm')) {
     const form = event.target.closest('#groupPaymentForm');
     const total = $$('input[name="invoiceIds"]:checked', form).reduce((sum, input) => sum + Number(input.dataset.due || 0), 0);
