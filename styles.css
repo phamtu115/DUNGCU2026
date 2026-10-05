@@ -7,3 +7,13 @@
 .payment-group .summary{grid-template-columns:repeat(3,minmax(0,1fr))}
 .payment-group .section-head{margin:0 0 14px}
 @media(max-width:700px){.payment-group .summary{grid-template-columns:1fr}}
+
+.desktop-menu-toggle{flex:0 0 auto;border:1px solid var(--line);box-shadow:0 4px 14px rgba(21,94,117,.08);transition:.2s}
+.sidebar,.main{transition:transform .22s ease,margin-left .22s ease}
+.app.menu-collapsed .sidebar{transform:translateX(-100%)}
+.app.menu-collapsed .main{margin-left:0}
+@media(max-width:800px){
+  .desktop-menu-toggle{display:none}
+  .app.menu-collapsed .sidebar{transform:translateX(-100%)}
+  .app.menu-collapsed .sidebar.open{transform:translateX(0)}
+}
